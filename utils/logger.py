@@ -15,7 +15,7 @@ class Formatter(logging.Formatter):
                record: logging.LogRecord,) -> str:
         # Calculate and format time elapsed
         elapsed = time.time() - self.start_time
-        record.elapsed = f'{elapsed:4.2f}'
+        record.elapsed = f'{elapsed:.2f}'
         
         return super().format(record)
     
