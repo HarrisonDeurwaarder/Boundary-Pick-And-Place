@@ -8,11 +8,11 @@ env:
   state_space: 0
 scene:
   num_envs: 4096
-  env_spacinga: 10.0
+  env_spacing: 10.0
   replicate_physics: True
   clone_in_fabric: True
 reset:
-  joints: []
+  joint_range: [-0.25, 0.25]
   object_displacement_range: [-1.0, 1.0]
 reward:
   scale_grasp: 1.0

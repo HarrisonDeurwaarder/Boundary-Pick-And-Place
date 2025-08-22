@@ -1,0 +1,19 @@
+from configs.environment_cfg import EnvCfg
+
+from isaaclab.envs import DirectRLEnv
+
+
+class Env(DirectRLEnv):
+    '''
+    The RL environment used
+    '''
+    def __init__(self,
+                 cfg: EnvCfg,
+                 render_mode: str | None = None,
+                 **kwargs) -> None:
+        super().__init__(render_mode=render_mode,
+                         **kwargs,)
+        
+        # Fill later
+        self.idx_joints = [None]
+        self.action_scale = self.cfg.action_scale
