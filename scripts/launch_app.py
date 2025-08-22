@@ -17,16 +17,4 @@ def launch() -> tuple:
     app_launcher = AppLauncher(args_cli)
     simulation_app = app_launcher.app
     
-    from isaaclab.sim import SimulationCfg, SimulationContext
-
-    # Configure sim context
-    sim_cfg = SimulationCfg(dt=0.01)
-    sim_context = SimulationContext(sim_cfg)
-    logging.info('App successfully launched')
-    
-    return simulation_app, sim_context, args_cli
-
-
-if __name__ == '__main__':
-    launch()
-    logging.info('success')
+    return simulation_app, args_cli

@@ -1,0 +1,22 @@
+env:
+  decimation: 2
+  episode_length: 5.0 # [sec]
+  action_scale: 100.0 # [N]
+  action_space: 7
+  angle_obs_space: 7
+  velocity_obs_space: 7
+  state_space: 0
+scene:
+  num_envs: 4096
+  env_spacinga: 10.0
+  replicate_physics: True
+  clone_in_fabric: True
+reset:
+  joints: []
+  object_displacement_range: [-1.0, 1.0]
+reward:
+  scale_grasp: 1.0
+  scale_duration: -0.1
+  scale_distance: 0.1
+  scale_drop: -1.5
+  scale_contact: 0.5
