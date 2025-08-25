@@ -1,12 +1,9 @@
 import yaml
 
-from isaaclab.assets import ArticulationCfg, AssetBaseCfg
 from isaaclab.envs import DirectRLEnvCfg
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.utils import configclass
 from isaaclab.sim import SimulationCfg
-
-from isaaclab_assets import FRANKA_PANDA_HIGH_PD_CFG
 
 
 @configclass
@@ -29,12 +26,6 @@ class EnvCfg(DirectRLEnvCfg):
     # Sim config
     sim: SimulationCfg = SimulationCfg(dt=1/100)
     
-    # Panda config
-    robot_cfg: ArticulationCfg = FRANKA_PANDA_HIGH_PD_CFG.replace(prim_path='/Word/envs/env_.*/Panda')
-    robot_cfg.actuators["panda_shoulder"].stiffness = 0.0
-    robot_cfg.actuators["panda_shoulder"].damping = 0.0
-    robot_cfg.actuators["panda_forearm"].stiffness = 0.0
-    robot_cfg.actuators["panda_forearm"].damping = 0.0
     # Fill in later
     joint_names = [
         'joint1',

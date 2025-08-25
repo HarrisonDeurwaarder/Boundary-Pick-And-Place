@@ -5,7 +5,7 @@ from isaaclab.envs import DirectRLEnv
 
 class Env(DirectRLEnv):
     '''
-    The RL environment used
+    The RL environment
     '''
     def __init__(self,
                  cfg: EnvCfg,

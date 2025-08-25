@@ -21,8 +21,8 @@ class Formatter(logging.Formatter):
     
     
 # Setup logging
-handler = logging.StreamHandler()
-formatter = Formatter('[%(elapsed)s][%(levelname)s]: %(message)s',)
+handler: logging.StreamHandler = logging.StreamHandler()
+formatter: Formatter = Formatter('[%(elapsed)s][%(levelname)s]: %(message)s',)
 handler.setFormatter(formatter)
 
 logging.basicConfig(level=logging.INFO, handlers=[handler])
