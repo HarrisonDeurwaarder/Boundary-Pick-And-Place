@@ -1,4 +1,5 @@
 from isaaclab.app import AppLauncher
+from isaacsim import SimulationApp
 import argparse
 from utils.logger import logging
 
@@ -20,6 +21,6 @@ def launch_app() -> tuple:
     
     # Launch IsaacSim with given args
     app_launcher: AppLauncher = AppLauncher(args_cli)
-    simulation_app = app_launcher.app
+    simulation_app: SimulationApp = app_launcher.app
     
     return simulation_app, args_cli

@@ -26,7 +26,7 @@ class SceneCfg(InteractiveSceneCfg):
     )
     # Panda config
     panda: ArticulationCfg = FRANKA_PANDA_HIGH_PD_CFG.replace(
-        prim_path='/World/envs/env_.*/Panda'
+        prim_path='{ENV_REGEX_NS}/Panda'
     )
     panda.actuators["panda_shoulder"].stiffness = 0.0
     panda.actuators["panda_shoulder"].damping = 0.0
