@@ -9,12 +9,12 @@ class Formatter(logging.Formatter):
     def __init__(self, 
                  fmt: str | None = None,) -> None:
         super().__init__(fmt,)
-        self.start_time = time.time()
+        self.start_time: float = time.time()
         
     def format(self, 
                record: logging.LogRecord,) -> str:
         # Calculate and format time elapsed
-        elapsed = time.time() - self.start_time
+        elapsed: float = time.time() - self.start_time
         record.elapsed = f'{elapsed:.2f}'
         
         return super().format(record)
