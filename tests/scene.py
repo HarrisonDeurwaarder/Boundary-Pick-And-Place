@@ -21,18 +21,18 @@ def main():
         num_envs=1,
         env_spacing=1.0,
     )
-    scene = InteractiveScene(scene_cfg,)
+    scene: InteractiveScene = InteractiveScene(scene_cfg,)
     logging.info('Setup complete.')
     
     # Play the sim
-    sim_dt = sim.get_physics_dt()
+    sim_dt: float = sim.get_physics_dt()
     # Update panda buffers prior to first step
-    scene['robot'].update(sim_dt)
+    scene['panda'].update(sim_dt)
     while sim_app.is_running():
         scene.write_data_to_sim()
         sim.step()
         
-        scene['robot'].update(sim_dt)
+        scene['panda'].update(sim_dt)
         scene.update(sim_dt,)
         
         

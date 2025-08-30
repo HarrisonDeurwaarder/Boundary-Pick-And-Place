@@ -11,9 +11,10 @@ class EnvCfg(DirectRLEnvCfg):
     '''
     Environment configuration
     '''
+    Params = dict[str, dict[str, float | int | bool | list[float]]]
     # Read YAML file
     with open('hyperparams.yaml', 'r') as f:
-        params = yaml.safe_load(f)
+        params: Params = yaml.safe_load(f)
         
     # Env config
     decimation: int = params['env']['decimation']
@@ -27,7 +28,7 @@ class EnvCfg(DirectRLEnvCfg):
     sim: SimulationCfg = SimulationCfg(dt=1/100)
     
     # Fill in later
-    joint_names = [
+    joint_names: list = [
         'joint1',
         'joint2',
         'joint3',

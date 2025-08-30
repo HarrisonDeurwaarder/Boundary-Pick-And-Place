@@ -1,3 +1,5 @@
+import numpy as np
+
 import isaaclab.sim as sim_utils
 from isaaclab.controllers import OperationalSpaceController, OperationalSpaceControllerCfg
 from isaaclab.scene import InteractiveScene
@@ -12,7 +14,8 @@ def get_osc(sim: sim_utils.SimulationContext,
         sim (SimulationContext): The simulation context
         scene (InteractiveScene): The interactive scene
     '''
-    cfg = OperationalSpaceControllerCfg(
+    # Construct the OSC
+    cfg: OperationalSpaceControllerCfg = OperationalSpaceControllerCfg(
         target_types=['pose_abs', 'wrench_abs'],
         impedance_mode='variable_kp',
         inertial_dynamics_decoupling=False,
@@ -23,11 +26,12 @@ def get_osc(sim: sim_utils.SimulationContext,
         contact_wrench_control_axes_task=[0, 0, 1, 0, 0, 0],
         nullspace_control='position',
     )
-    return OperationalSpaceController(
+    osc: OperationalSpaceController = OperationalSpaceController(
         cfg, 
         num_envs=scene.num_envs,
         device=sim.device
     )
+    return osc
 
 
 def run_sim(sim: sim_utils.SimulationContext, 
@@ -40,5 +44,11 @@ def run_sim(sim: sim_utils.SimulationContext,
         scene (InteractiveScene): The interactive scene
     '''
     # Get indices for joints
-    ee_frame_idx = scene['robot'].find_bodies('panda_leftfinger')[0][0]
-    arm_joint_ids = scene['robot'].find_bodies(['panda_joint.*'])[0]
+    ee_frame_idx: int = scene['robot'].find_bodies('panda_leftfinger')[0][0]
+    arm_joint_ids: np.ndarray = scene['robot'].find_bodies(['panda_joint.*'])[0]
+    
+    # Define the OSC
+    osc: OperationalSpaceController = get_osc(sim, scene,)
+    
+    sim_dt: float = sim.get_physics_dt()
+    sim['panda']

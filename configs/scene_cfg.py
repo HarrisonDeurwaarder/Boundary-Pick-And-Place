@@ -14,22 +14,22 @@ class SceneCfg(InteractiveSceneCfg):
     Scene configuration
     '''
     # Ground plane
-    ground = AssetBaseCfg(
+    ground: AssetBaseCfg = AssetBaseCfg(
         prim_path='/World/defaultGroundPlane',
         spawn=sim_utils.GroundPlaneCfg(),
     )
     # Lighting
-    light = AssetBaseCfg(
+    light: AssetBaseCfg = AssetBaseCfg(
         prim_path='/World/Light',
         spawn = sim_utils.DomeLightCfg(intensity=3000.0,
                                        color = (0.75, 0.75, 0.75)),
     )
     # Panda config
-    robot: ArticulationCfg = FRANKA_PANDA_HIGH_PD_CFG.replace(
+    panda: ArticulationCfg = FRANKA_PANDA_HIGH_PD_CFG.replace(
         prim_path='/World/envs/env_.*/Panda'
     )
-    robot.actuators["panda_shoulder"].stiffness = 0.0
-    robot.actuators["panda_shoulder"].damping = 0.0
-    robot.actuators["panda_forearm"].stiffness = 0.0
-    robot.actuators["panda_forearm"].damping = 0.0
+    panda.actuators["panda_shoulder"].stiffness = 0.0
+    panda.actuators["panda_shoulder"].damping = 0.0
+    panda.actuators["panda_forearm"].stiffness = 0.0
+    panda.actuators["panda_forearm"].damping = 0.0
     

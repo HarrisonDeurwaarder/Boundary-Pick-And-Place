@@ -15,5 +15,5 @@ class Env(DirectRLEnv):
                          **kwargs,)
         
         # Fill later
-        self.idx_joints = [None]
-        self.action_scale = self.cfg.action_scale
+        self.idx_joints: list = [None]
+        self.action_scale: float = self.cfg.action_scale
