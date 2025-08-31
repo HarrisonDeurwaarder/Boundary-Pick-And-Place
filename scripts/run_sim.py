@@ -60,68 +60,125 @@ def run_sim(sim: sim_utils.SimulationContext,
     osc: OperationalSpaceController = get_osc(sim, scene,)
     
     sim_dt: float = sim.get_physics_dt()
-    sim['panda']
+    sim['panda'].update(dt=sim_dt)
+    
+    # Center of panda's joint ranges
+    joint_centers: torch.Tensor = torch.mean(scene['panda'].data.soft_joint_pos_limits[:, arm_joint_ids, :], dim=-1)
+    
+    # Get updated states
+    (
+        jacobian_b,
+        mass_matrix,
+        gravity,
+        ee_pose_b,
+        ee_vel_b,
+        root_pose_w,
+        ee_pose_w,
+        joint_pos,
+        joint_vel,
+    ) = update_states(
+        panda=scene['panda'],
+        ee_frame_idx=ee_frame_idx,
+        arm_joint_ids=arm_joint_ids,
+    )
+    # Track the given target command
+    current_goal_idx = 0  # Current goal index for the arm
+    command = torch.zeros(
+        scene.num_envs, osc.action_dim, device=sim.device
+    )  # Generic target command, which can be pose, position, force, etc.
+    ee_target_pose_b = torch.zeros(scene.num_envs, 7, device=sim.device)
+
+    # Zero all joint efforts
+    zero_joint_efforts = torch.zeros(scene.num_envs, scene['panda'].num_joints, device=sim.device)
+    # The joint efforts touched by the OSC
+    joint_efforts = torch.zeros(scene.num_envs, len(arm_joint_ids), device=sim.device)
     
     
-def update_states(sim: sim_utils.SimulationContext,
-                  scene: InteractiveScene,
-                  panda: Articulation,
+def update_states(panda: Articulation,
                   ee_frame_idx: int,
-                  arm_joint_ids: list[int],
-                  contact_forces: torch.Tensor,) -> tuple:
+                  arm_joint_ids: list[int],) -> tuple[torch.Tensor]:
     '''
     Update the panda's states
+    Contact forces are not explicitily handled for simplicity
     
     Args:
-        sim (SimulationContext): The simulation context
-        scene (InteractiveScene): The interactive scene
         panda (Articulation): The panda articulation
         ee_frame_idx (int): The end-effector frame index
-        arm_joint_ids: (list[int]) The arm joint indices
+        arm_joint_ids (list[int]): The arm joint indices
         
     Returns:
-
+        jacobian_b (torch.Tensor): The jacobian in the body frame
+        mass_mat (torch.Tensor): The mass matrix
+        gravity (torch.Tensor): The gravity vector
+        ee_pose_b (torch.tensor): The end-effector pose in the body frame
+        ee_vel_b (torch.tensor): The end-effector velocity in the body frame
+        root_pose_w (torch.tensor): The root pose in the world frame
+        ee_pose_w (torch.tensor): The end-effector pose in the world frame
+        joint_pos (torch.tensor): The joint positions
+        joint_vel (torch.tensor): The joint velocities
     '''
     # Align frame indices with 0-start indexing
-    ee_jacobi_idx = ee_frame_idx - 1
+    ee_jacobi_idx: int = ee_frame_idx - 1
     # Obtain dynamics related quantities from the sim
-    jacobian_w  = panda.root_physx_view.get_jacobians()[:, ee_jacobi_idx, :, arm_joint_ids]
-    mass_mat = panda.root_physx_view.get_generalized_mass_matrices()[:, arm_joint_ids, :][:, :, arm_joint_ids]
-    gravity = panda.root_physx_view.get_gravity_compensation_forces()[:, arm_joint_ids]
+    jacobian_w: torch.Tensor  = panda.root_physx_view.get_jacobians()[:, ee_jacobi_idx, :, arm_joint_ids]
+    mass_mat: torch.Tensor = panda.root_physx_view.get_generalized_mass_matrices()[:, arm_joint_ids, :][:, :, arm_joint_ids]
+    gravity: torch.Tensor = panda.root_physx_view.get_gravity_compensation_forces()[:, arm_joint_ids]
     
     # Convert the Jacobian from world to root frame
-    jacobian_b = jacobian_w.clone()
-    root_rot_matrix = matrix_from_quat(quat_inv(panda.data.root_quat_w))
+    jacobian_b: torch.Tensor = jacobian_w.clone()
+    root_rot_matrix: torch.Tensor = matrix_from_quat(quat_inv(panda.data.root_quat_w))
     jacobian_b[:, :3, :] = torch.bmm(root_rot_matrix, jacobian_b[:, :3, :])
     jacobian_b[:, 3:, :] = torch.bmm(root_rot_matrix, jacobian_b[:, 3:, :])
     
     # Compute current pose of the end_effector
-    root_pos_w = panda.data.root_pos_w
-    root_quat_w = panda.data.root_quat_w
-    ee_pos_w = panda.data.body_pos_w[:, ee_frame_idx]
-    ee_quat_w = panda.data.body_quat_w[:, ee_frame_idx]
+    root_pos_w: torch.Tensor = panda.data.root_pos_w
+    root_quat_w: torch.Tensor = panda.data.root_quat_w
+    ee_pos_w: torch.Tensor = panda.data.body_pos_w[:, ee_frame_idx]
+    ee_quat_w: torch.Tensor = panda.data.body_quat_w[:, ee_frame_idx]
     ee_pos_b, ee_quat_b = subtract_frame_transforms(
         root_pos_w,
         root_quat_w,
         ee_pos_w,
         ee_quat_w,
     )
-    root_pose_w = torch.cat(
+    root_pose_w: torch.Tensor = torch.cat(
         [root_pos_w, root_quat_w,],
         dim=-1,
     )
-    ee_pose_w = torch.cat(
+    ee_pose_w: torch.Tensor = torch.cat(
         [ee_pos_w, ee_quat_w,],
         dim=-1,
     )
-    ee_pose_b = torch.cat(
+    ee_pose_b: torch.Tensor = torch.cat(
         [ee_pos_b, ee_quat_b,],
         dim=-1,
     )
     
     # Extract EE/root vel in world frame
-    ee_vel_w = panda.data.body_vel_w[:, ee_frame_idx, :]
-    root_vel_w = panda.data.root_vel_w
+    ee_vel_w: torch.Tensor = panda.data.body_vel_w[:, ee_frame_idx, :]
+    root_vel_w: torch.Tensor = panda.data.root_vel_w
+    
     # Compute relative vel in world frame
-    relative_vel_w = ee_vel_w - root_vel_w
-    ee_lin_vel_b = quat_apply_inverse(panda.data)
+    relative_vel_w: torch.Tensor = ee_vel_w - root_vel_w
+    ee_lin_vel_b: torch.Tensor = quat_apply_inverse(panda.data.root_quat_w, relative_vel_w[:, :3])
+    ee_ang_vel_b: torch.Tensor = quat_apply_inverse(panda.data.root_quat_w, relative_vel_w[:, 3:])
+    ee_vel_b: torch.Tensor = torch.cat(
+        [ee_lin_vel_b, ee_ang_vel_b],
+        dim=-1,
+    )
+    
+    # Get joint positions and velocities
+    joint_pos: torch.Tensor = panda.data.joint_pos[:, arm_joint_ids]
+    joint_vel: torch.Tensor = panda.data.joint_vel[:, arm_joint_ids]
+    
+    return (
+        jacobian_b,
+        mass_mat,
+        gravity,
+        ee_pose_b,
+        ee_vel_b,
+        root_pose_w,
+        ee_pose_w,
+        joint_pos,
+        joint_vel
+    )
