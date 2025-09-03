@@ -11,7 +11,7 @@ def launch_app(*args: Argument) -> tuple:
     Launch the app with the required flags
     
     Args:
-        *args (Argument): Dictionaries containing all required parameters of a argument to add to the parser
+        *args (dict[Literal['flag', 'type', 'default', 'help'], str | type | Any]): Dictionaries containing all required parameters of a argument to add to the parser
     
     Returns:
         simulation_app (SimulationApp): The launched app

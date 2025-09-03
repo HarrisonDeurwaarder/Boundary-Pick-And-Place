@@ -129,3 +129,36 @@ def update_states(panda: Articulation,
         joint_pos,
         joint_vel
     )
+    
+    
+def update_target(sim: sim_utils.SimulationContext,
+                  scene: InteractiveScene,
+                  osc: OperationalSpaceController,
+                  root_pose_w: torch.Tensor,
+                  ee_target: torch.Tensor,) -> tuple:
+    '''
+    Updates the targets for the OSC
+    
+    Args:
+        sim (SimulationContext): The simulation context
+        scene: (InteractiveScene) the interactive scene
+        osc: (OperationalSpaceController) The operational space controller
+        root_pose_w: (torch.tensor) The root pose in the world frame
+        ee_target: (torch.tensor) The end-effector target
+        
+    Returns:
+        command (torch.Tensor): The updated target command
+        ee_target_pose_b (torch.Tensor): the updated target pose in the body frame
+        next_goal_idx (int): The next goal index
+    '''
+    # Update the EE's desired command
+    command = torch.zeros(
+        scene.num_envs,
+        osc.action_dim,
+        device=sim.device,
+    )
+    command[:] = ee_target
+    
+    # Update the EE's desired pose
+    ee_target_pose_b: torch.Tensor = torch.zeros(scene.num_envs, 7, device=sim.device)
+    

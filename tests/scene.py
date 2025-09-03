@@ -28,28 +28,29 @@ def main() -> None:
     logging.info('Setup complete.')
     
     sim_dt: float = sim.get_physics_dt()
+    panda = scene['panda']
     # Update panda buffers prior to first step
-    scene['panda'].update(dt=sim_dt,)
+    panda.update(dt=sim_dt,)
     # Reset the panda to default states
-    default_joint_pos, default_joint_vel = scene['panda'].data.default_joint_pos.clone(), scene['panda'].data.default_joint_vel.clone()
-    scene['panda'].write_joint_state_to_sim(default_joint_pos, default_joint_vel,)
-    scene['panda'].set_joint_effort_target(torch.zeros(
+    default_joint_pos, default_joint_vel = panda.data.default_joint_pos.clone(), panda.data.default_joint_vel.clone()
+    panda.write_joint_state_to_sim(default_joint_pos, default_joint_vel,)
+    panda.set_joint_effort_target(torch.zeros(
         scene.num_envs, 
-        scene['panda'].num_joints,
+        panda.num_joints,
         device=sim.device,
     ),)
-    scene['panda'].write_data_to_sim()
-    scene['panda'].reset()
+    panda.write_data_to_sim()
+    panda.reset()
     
     # Play the sim
     while sim_app.is_running():
         # Write scene and panda data
-        scene['panda'].write_data_to_sim()
+        panda.write_data_to_sim()
         scene.write_data_to_sim()
         
         # Update the scene
         sim.step(render=True)
-        scene['panda'].update(sim_dt,)
+        panda.update(sim_dt,)
         scene.update(sim_dt,)
         
         
