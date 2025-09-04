@@ -135,16 +135,16 @@ def update_target(sim: sim_utils.SimulationContext,
                   scene: InteractiveScene,
                   osc: OperationalSpaceController,
                   root_pose_w: torch.Tensor,
-                  ee_target: torch.Tensor,) -> tuple:
+                  ee_target: torch.Tensor,) -> tuple[torch.Tensor, torch.Tensor]:
     '''
     Updates the targets for the OSC
     
     Args:
         sim (SimulationContext): The simulation context
-        scene: (InteractiveScene) the interactive scene
-        osc: (OperationalSpaceController) The operational space controller
-        root_pose_w: (torch.tensor) The root pose in the world frame
-        ee_target: (torch.tensor) The end-effector target
+        scene: (InteractiveScene): The interactive scene
+        osc: (OperationalSpaceController): The operational space controller
+        root_pose_w: (torch.tensor): Root pose in the world frame
+        ee_target: (torch.tensor): End-effector target
         
     Returns:
         command (torch.Tensor): The updated target command
@@ -159,6 +159,43 @@ def update_target(sim: sim_utils.SimulationContext,
     )
     command[:] = ee_target
     
-    # Update the EE's desired pose
+    # Update the EE's desired pose (init as zeros)
     ee_target_pose_b: torch.Tensor = torch.zeros(scene.num_envs, 7, device=sim.device)
+    for target_type in osc.cfg.target_types:
+       # If absolute pose is a target type, update the target pose to the command
+        if target_type == 'pose_abs':
+            ee_target_pose_b[:] = command[:, :7]
+        # Ignore if type is wrench, but don't throw an error
+        elif target_type == 'wrench_abs':
+            pass
+        else:
+            raise ValueError('Undefined target_type within update_target()')
+        
+    return command, ee_target_pose_b
+
+
+def convert_to_task_frame(osc: OperationalSpaceController,
+                         command: torch.Tensor,
+                         ee_target_pose_b: torch.Tensor,) -> tuple[torch.Tensor, torch.Tensor]:
+    '''
+    Converts the target commands to the task frame
     
+    Args:
+        osc (OperationalSpaceController): The operational space controller
+        command (torch.Tensor): Target command to be converted
+        ee_target_pose_b (torch.Tensor): Target pose in the body frame
+        
+    Returns:
+        command (torch.Tensor): The converted target command in the task frame
+        task_frame_pose_b (torch.Tensor): Target pose in the task frame
+    '''
+    command = command.clone()
+    task_frame_pose_b = ee_target_pose_b.clone()
+    
+    for target_type in osc.cfg.target_types:
+        if target_type == 'pose_abs':
+            command[:, :3], command[:, 3:] = subtract_frame_transforms(
+                task_frame_pose_b[:, :3], task_frame_pose_b[:, 3:], command[:, :3], command[:, 3:]
+            )
+            
+    return command, task_frame_pose_b
