@@ -5,7 +5,7 @@ import isaaclab.sim as sim_utils
 from isaaclab.controllers import OperationalSpaceController
 from isaaclab.scene import InteractiveScene
 
-from utils.osc import update_states, get_osc
+from utils.osc import update_states, get_osc, update_target, convert_to_task_frame
 from scripts.launch_app import launch_app
 
 
@@ -52,8 +52,6 @@ def run_sim(sim: sim_utils.SimulationContext,
         arm_joint_ids=arm_joint_ids,
     )
     
-    # Track the given target command
-    current_goal_idx: int = 0  # Current goal index for the arm
     command: torch.Tensor = torch.zeros(scene.num_envs, osc.action_dim, device=sim.device)
     # Generic target command, which can be pose, position, force, etc.
     ee_target_pose_b: torch.Tensor = torch.zeros(scene.num_envs, 7, device=sim.device)
@@ -66,6 +64,7 @@ def run_sim(sim: sim_utils.SimulationContext,
     '''Simulation Loop'''
     terminated: bool = True
     while sim_app.is_running():
+        # Episode reset procedure
         if terminated:
             # Reset joint pos to default
             # Temporary for simplicity (will be randomized)
@@ -81,4 +80,32 @@ def run_sim(sim: sim_utils.SimulationContext,
                 panda,
                 ee_frame_idx,
                 arm_joint_ids
+            )
+            # Updates the command and specialized position/quaternion orientation target
+            command, ee_target_pose_b = update_target(
+                 osc, _
+             )
+            # Set the OSC command
+            osc.reset()
+            command, task_frame_pose_b = convert_to_task_frame(
+                osc,
+                command,
+                ee_target_pose_b
+            )
+            osc.set_command(
+                command=command,
+                current_ee_pose_b=ee_pose_b,
+                current_task_frame_pose_b=task_frame_pose_b,
+            )
+        # Base execution; steps sim
+        else:
+            (
+               jacobian_b,
+               mass_matrix,
+               gravity,
+               ee_pose_b,
+            ) = update_states(
+                panda=panda,
+                ee_frame_idx=ee_frame_idx,
+                ee_target_pose_b=ee_target_pose_b,
             )

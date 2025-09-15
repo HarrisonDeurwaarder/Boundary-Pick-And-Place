@@ -134,7 +134,6 @@ def update_states(panda: Articulation,
 def update_target(sim: sim_utils.SimulationContext,
                   scene: InteractiveScene,
                   osc: OperationalSpaceController,
-                  root_pose_w: torch.Tensor,
                   ee_target: torch.Tensor,) -> tuple[torch.Tensor, torch.Tensor]:
     '''
     Updates the targets for the OSC
@@ -143,7 +142,6 @@ def update_target(sim: sim_utils.SimulationContext,
         sim (SimulationContext): The simulation context
         scene: (InteractiveScene): The interactive scene
         osc: (OperationalSpaceController): The operational space controller
-        root_pose_w: (torch.tensor): Root pose in the world frame
         ee_target: (torch.tensor): End-effector target
         
     Returns:
