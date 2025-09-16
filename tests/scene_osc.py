@@ -146,15 +146,15 @@ def run_sim(sim: sim_utils.SimulationContext,
                 nullspace_joint_pos_target=joint_centers,
             )
             # Apply efforts
-            scene['panda'].set_joint_effort_target(
+            panda.set_joint_effort_target(
                 joint_efforts, joint_ids=arm_joint_ids,
             )
-            scene['panda'].write_data_to_sim()
+            panda.write_data_to_sim()
 
         # Perform step
         sim.step(render=True)
         # Update panda buffers
-        scene['panda'].update(sim_dt)
+        panda.update(sim_dt)
         # Update scene buffers
         scene.update(sim_dt)
         # Update sim-time
@@ -170,7 +170,7 @@ def main() -> None:
     sim: sim_utils.SimulationContext = sim_utils.SimulationContext(sim_cfg,)
     # Design the scene and reset it
     scene_cfg: SceneCfg = SceneCfg(
-        num_envs=9,
+        num_envs=1,
         env_spacing=1.0,
     )
     scene: InteractiveScene = InteractiveScene(scene_cfg,)
@@ -181,9 +181,9 @@ def main() -> None:
     run_sim(
         sim,
         scene,
-        pose_dist=Uniform(-0.8, 0.8),
-        wrench_dist=Uniform(0, 100),
-        kp_dist=Uniform(100, 10000)
+        pose_dist=Uniform(-1.0, 1.0),
+        wrench_dist=Uniform(0.0, 20.0),
+        kp_dist=Uniform(100.0, 500.0)
     )
     
 

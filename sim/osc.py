@@ -28,7 +28,7 @@ def get_osc(sim: sim_utils.SimulationContext,
         inertial_dynamics_decoupling=False,
         gravity_compensation=False,
         motion_damping_ratio_task=1.0,
-        contact_wrench_stiffness_task=[0.0, 0.0, 0.1, 0.0, 0.0, 0.0],
+        contact_wrench_stiffness_task=None, # [0.0, 0.0, 0.1, 0.0, 0.0, 0.0]
         motion_control_axes_task=[1, 1, 0, 1, 1, 1],
         contact_wrench_control_axes_task=[0, 0, 1, 0, 0, 0],
         nullspace_control='position',
