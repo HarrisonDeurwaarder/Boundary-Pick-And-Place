@@ -59,8 +59,6 @@ def update_states(panda: Articulation,
         gravity (torch.Tensor): The gravity vector
         ee_pose_b (torch.tensor): The end-effector pose in the body frame
         ee_vel_b (torch.tensor): The end-effector velocity in the body frame
-        root_pose_w (torch.tensor): The root pose in the world frame
-        ee_pose_w (torch.tensor): The end-effector pose in the world frame
         joint_pos (torch.tensor): The joint positions
         joint_vel (torch.tensor): The joint velocities
     '''
@@ -87,14 +85,6 @@ def update_states(panda: Articulation,
         root_quat_w,
         ee_pos_w,
         ee_quat_w,
-    )
-    root_pose_w: torch.Tensor = torch.cat(
-        [root_pos_w, root_quat_w,],
-        dim=-1,
-    )
-    ee_pose_w: torch.Tensor = torch.cat(
-        [ee_pos_w, ee_quat_w,],
-        dim=-1,
     )
     ee_pose_b: torch.Tensor = torch.cat(
         [ee_pos_b, ee_quat_b,],
@@ -124,8 +114,6 @@ def update_states(panda: Articulation,
         gravity,
         ee_pose_b,
         ee_vel_b,
-        root_pose_w,
-        ee_pose_w,
         joint_pos,
         joint_vel
     )

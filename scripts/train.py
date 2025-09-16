@@ -4,8 +4,10 @@ import torch
 import isaaclab.sim as sim_utils
 from isaaclab.controllers import OperationalSpaceController
 from isaaclab.scene import InteractiveScene
+from isaaclab.assets import Articulation
 
-from utils.osc import update_states, get_osc, update_target, convert_to_task_frame
+from sim.osc import update_states, get_osc, update_target, convert_to_task_frame
+from sim.loop import terminate, base
 from scripts.launch_app import launch_app
 
 
@@ -29,7 +31,7 @@ def run_sim(sim: sim_utils.SimulationContext,
     osc: OperationalSpaceController = get_osc(sim, scene,)
     
     sim_dt: float = sim.get_physics_dt()
-    panda = scene['panda']
+    panda: Articulation = scene['panda']
     panda.update(dt=sim_dt)
     
     # Center of panda's joint ranges
@@ -38,12 +40,10 @@ def run_sim(sim: sim_utils.SimulationContext,
     # Get updated states
     (
         jacobian_b,
-        mass_matrix,
+        mass_mat,
         gravity,
         ee_pose_b,
         ee_vel_b,
-        root_pose_w,
-        ee_pose_w,
         joint_pos,
         joint_vel,
     ) = update_states(
@@ -76,21 +76,21 @@ def run_sim(sim: sim_utils.SimulationContext,
             panda.reset()
             # Reset target pose
             panda.update(sim_dt)
-            _, _, _, ee_pose, _, _, _, _, _ = update_states(
+            _, _, _, ee_pose_b, _, _, _, _, _ = update_states(
                 panda,
                 ee_frame_idx,
                 arm_joint_ids
             )
             # Updates the command and specialized position/quaternion orientation target
             command, ee_target_pose_b = update_target(
-                 osc, _
-             )
+                    osc, _
+                )
             # Set the OSC command
             osc.reset()
             command, task_frame_pose_b = convert_to_task_frame(
                 osc,
                 command,
-                ee_target_pose_b
+                ee_target_pose_b,
             )
             osc.set_command(
                 command=command,
@@ -100,12 +100,40 @@ def run_sim(sim: sim_utils.SimulationContext,
         # Base execution; steps sim
         else:
             (
-               jacobian_b,
-               mass_matrix,
-               gravity,
-               ee_pose_b,
+                jacobian_b,
+                mass_mat,
+                gravity,
+                ee_pose_b,
+                ee_vel_b,
+                joint_pos,
+                joint_vel
             ) = update_states(
                 panda=panda,
                 ee_frame_idx=ee_frame_idx,
                 ee_target_pose_b=ee_target_pose_b,
             )
+            # Get joint commands
+            joint_efforts: torch.Tensor = osc.compute(
+                jacobian_b=jacobian_b,
+                current_ee_pose_b=ee_pose_b,
+                current_ee_vel_b=ee_vel_b,
+                mass_matrix=mass_mat,
+                gravity=gravity,
+                current_joint_pos=joint_pos,
+                current_joint_vel=joint_vel,
+                nullspace_joint_pos_target=joint_centers,
+            )
+            # Apply efforts
+            scene['panda'].set_joint_effort_target(
+                joint_efforts, joint_ids=arm_joint_ids,
+            )
+            scene['panda'].write_data_to_sim()
+
+        # Perform step
+        sim.step(render=True)
+        # Update robot buffers
+        scene['panda'].update(sim_dt)
+        # Update scene buffers
+        scene.update(sim_dt)
+        # Update sim-time
+        count += 1
