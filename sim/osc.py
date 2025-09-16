@@ -180,8 +180,8 @@ def convert_to_task_frame(osc: OperationalSpaceController,
     
     for target_type in osc.cfg.target_types:
         if target_type == 'pose_abs':
-            command[:, :3], command[:, 3:] = subtract_frame_transforms(
-                task_frame_pose_b[:, :3], task_frame_pose_b[:, 3:], command[:, :3], command[:, 3:]
+            command[:, :3], command[:, 3:7] = subtract_frame_transforms(
+                task_frame_pose_b[:, :3], task_frame_pose_b[:, 3:], command[:, :3], command[:, 3:7]
             )
             
     return command, task_frame_pose_b
