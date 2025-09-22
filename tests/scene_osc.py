@@ -77,7 +77,7 @@ def run_sim(sim: sim_utils.SimulationContext,
     count: int = 0
     while sim_app.is_running():
         # Episode reset procedure
-        if count % 50 == 0:
+        if count % 150 == 0:
             # Reset joint pos to default
             # Temporary for simplicity (will be randomized)
             default_joint_pos: torch.Tensor = panda.data.default_joint_pos.clone()
@@ -95,9 +95,10 @@ def run_sim(sim: sim_utils.SimulationContext,
             )
             
             # Sample the action
-            ee_pose_task: torch.Tensor = pose_dist.sample((7,))
-            ee_wrench_task: torch.Tensor = wrench_dist.sample((6,))
-            kp_task: torch.Tensor = kp_dist.sample((6,))
+            ee_pose_task: torch.Tensor = pose_dist.sample((7,), device=sim.device)
+            ee_wrench_task: torch.Tensor = wrench_dist.sample((6,), device=sim.device)
+            kp_task: torch.Tensor = kp_dist.sample((6,), device=sim.device)
+            
             ee_targets: torch.Tensor = torch.cat([ee_pose_task, ee_wrench_task, kp_task])
             
             # Updates the command and specialized position/quaternion orientation target
@@ -166,7 +167,7 @@ def main() -> None:
     Main function to run the scene with OSC-calculated commands
     '''
     # Load the simulation
-    sim_cfg: sim_utils.SimulationCfg = sim_utils.SimulationCfg(dt=0.01, device=args_cli.device,)
+    sim_cfg: sim_utils.SimulationCfg = sim_utils.SimulationCfg(dt=1/120, render_interval=2, device=args_cli.device,)
     sim: sim_utils.SimulationContext = sim_utils.SimulationContext(sim_cfg,)
     # Design the scene and reset it
     scene_cfg: SceneCfg = SceneCfg(
@@ -181,9 +182,9 @@ def main() -> None:
     run_sim(
         sim,
         scene,
-        pose_dist=Uniform(-1.0, 1.0),
+        pose_dist=Uniform(-2.0, 2.0),
         wrench_dist=Uniform(0.0, 20.0),
-        kp_dist=Uniform(100.0, 500.0)
+        kp_dist=Uniform(0.0, 0.001)
     )
     
 
