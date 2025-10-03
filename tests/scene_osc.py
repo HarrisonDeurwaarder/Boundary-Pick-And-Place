@@ -95,9 +95,9 @@ def run_sim(sim: sim_utils.SimulationContext,
             )
             
             # Sample the action
-            ee_pose_task: torch.Tensor = pose_dist.sample((7,), device=sim.device)
-            ee_wrench_task: torch.Tensor = wrench_dist.sample((6,), device=sim.device)
-            kp_task: torch.Tensor = kp_dist.sample((6,), device=sim.device)
+            ee_pose_task: torch.Tensor = pose_dist.sample((7,)).to(sim.device)
+            ee_wrench_task: torch.Tensor = wrench_dist.sample((6,)).to(sim.device)
+            kp_task: torch.Tensor = kp_dist.sample((6,)).to(sim.device)
             
             ee_targets: torch.Tensor = torch.cat([ee_pose_task, ee_wrench_task, kp_task])
             
