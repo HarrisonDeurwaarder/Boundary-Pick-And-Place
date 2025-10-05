@@ -1,5 +1,9 @@
 import isaaclab.sim as sim_utils
 import torch
+from utils.hyperparams import HPARAMS
+
+
+thickness: float = HPARAMS['scene']['wall_thickness']
 
 
 def get_rects(dims: torch.Tensor,) -> tuple[sim_utils.CuboidCfg]:
@@ -16,7 +20,10 @@ def get_rects(dims: torch.Tensor,) -> tuple[sim_utils.CuboidCfg]:
     '''
     get_boundary = lambda scale: sim_utils.CuboidCfg(
         size=scale,
-        rigid_props=sim_utils.RigidBodyPropertiesCfg(),
+        rigid_props=sim_utils.RigidBodyPropertiesCfg(
+            disable_gravity=True,
+            kinematic_enabled=True,
+        ),
         mass_props=sim_utils.MassPropertiesCfg(mass=1.0),
         collision_props=sim_utils.CollisionPropertiesCfg(),
         visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(1.0, 1.0, 1.0)),
@@ -24,8 +31,8 @@ def get_rects(dims: torch.Tensor,) -> tuple[sim_utils.CuboidCfg]:
             static_friction=0.8, dynamic_friction=0.6, restitution=0.1,
         ),
     )
-    boundary_x: sim_utils.CuboidCfg = get_boundary((1.0, float(dims[1].item()), float(dims[2].item())))
-    boundary_y: sim_utils.CuboidCfg = get_boundary((float(dims[0].item()), 1.0, float(dims[2].item())))
-    boundary_z: sim_utils.CuboidCfg = get_boundary((float(dims[0].item()), float(dims[1].item()), 1.0))
+    boundary_x: sim_utils.CuboidCfg = get_boundary((thickness, float(dims[1].item()), float(dims[2].item())))
+    boundary_y: sim_utils.CuboidCfg = get_boundary((float(dims[0].item()), thickness, float(dims[2].item())))
+    boundary_z: sim_utils.CuboidCfg = get_boundary((float(dims[0].item()), float(dims[1].item()), thickness))
     
     return boundary_x, boundary_y, boundary_z

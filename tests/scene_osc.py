@@ -171,8 +171,8 @@ def main() -> None:
     sim: sim_utils.SimulationContext = sim_utils.SimulationContext(sim_cfg,)
     # Design the scene and reset it
     scene_cfg: SceneCfg = SceneCfg(
-        num_envs=1,
-        env_spacing=1.0,
+        num_envs=9,
+        env_spacing=20.0,
     )
     scene: InteractiveScene = InteractiveScene(scene_cfg,)
     sim.reset()

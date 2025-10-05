@@ -11,6 +11,7 @@ scene:
   env_spacing: 10.0
   replicate_physics: True
   clone_in_fabric: True
+  wall_thickness: 0.1
 reset:
   joint_range: [-0.25, 0.25]
   object_displacement_range: [-1.0, 1.0]
