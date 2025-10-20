@@ -57,8 +57,7 @@ class Actor(nn.Module):
             gae_decay (float): GAE hyperparameter to control TD propagation
         
         Returns:
-            clipped_surrogate_obj (Tensor): PPO policy objected derived from advantage estimations
-            value_target (Tensor: PPO value objective (pre-MSE) derived from the advantage
+            advantage (Tensor): Low variance/low bias advantage estimations
         '''
         # Pre-compute the TD residuals
         td_residuals: torch.Tensor = rewards + critic_out[1:] * discount_factor - critic_out[:-1]
@@ -66,10 +65,8 @@ class Actor(nn.Module):
         advantages: torch.Tensor = torch.zeros_like(rewards)
         for t in reversed(td_residuals.size(-1) - 1):
             advantages[t] = td_residuals[..., t] + discount_factor * gae_decay * (1 - dones[..., t+1]) * advantages[..., t+1]
-        # Compute critic objective
-        value_target = advantages + critic_out[:-1]
         
-        return advantages, value_target
+        return advantages
         
     
     @classmethod
@@ -101,12 +98,12 @@ class Actor(nn.Module):
         
         Returns:
             clipped_surrogate_obj (Tensor): PPO policy objected derived from advantage estimations
-            value_target (Tensor: PPO value objective (pre-MSE) derived from the advantage
+            advantage (Tensor): Low variance/low bias advantage estimations
         '''
         # Ratio of probabilities of the selected action (mean log probs for multiple continous actions)
         policy_ratio: torch.Tensor = torch.exp(policy_dist.log_prob(actions) - old_policy_dist.log_prob(actions))
         # Advantage and value target computation
-        advantages, value_target = Actor.gae(
+        advantages = Actor.gae(
             rewards=rewards,
             dones=dones,
             predicted_value=critic_out,
@@ -123,7 +120,7 @@ class Actor(nn.Module):
             ),
         )
         
-        return clipped_surrogate_obj, value_target
+        return clipped_surrogate_obj, advantages
     
     
 class Critic(nn.Module):
