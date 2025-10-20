@@ -40,47 +40,90 @@ class Actor(nn.Module):
     
     @classmethod
     def gae(
-        self,
+        rewards: torch.Tensor,
+        dones: torch.Tensor,
+        critic_out: torch.Tensor,
+        discount_factor: float = 0.99,
+        gae_decay: float = 0.98,
     ) -> torch.Tensor:
         '''
-        Computes GAE
+        Computes GAE, a low variance/low bias advantage estimation function
+        
+        Args:
+            rewards (Tensor): Float environment rewards at every step in the rollout
+            dones (Tensor): Boolean flags indicating if an episode has been terminated at every rollout
+            critic_out (Tensor): Predicted value derived from the critic
+            discount_factor (float): MDP discount factor to weight more recent rewards higher in the value computation
+            gae_decay (float): GAE hyperparameter to control TD propagation
+        
+        Returns:
+            clipped_surrogate_obj (Tensor): PPO policy objected derived from advantage estimations
+            value_target (Tensor: PPO value objective (pre-MSE) derived from the advantage
         '''
-        pass
-    
+        # Pre-compute the TD residuals
+        td_residuals: torch.Tensor = rewards + critic_out[1:] * discount_factor - critic_out[:-1]
+        # Iteratively compute GAE
+        advantages: torch.Tensor = torch.zeros_like(rewards)
+        for t in reversed(td_residuals.size(-1) - 1):
+            advantages[t] = td_residuals[..., t] + discount_factor * gae_decay * (1 - dones[..., t+1]) * advantages[..., t+1]
+        # Compute critic objective
+        value_target = advantages + critic_out[:-1]
+        
+        return advantages, value_target
+        
     
     @classmethod
     def surrogate_obj(
-        self,
         policy_dist: torch.distributions.Normal,
         old_policy_dist: torch.distributions.Normal,
         actions: torch.Tensor,
+        rewards: torch.Tensor,
+        dones: torch.Tensor,
         critic_out: torch.Tensor,
-        clipping_param: float,
+        discount_factor: float = 0.99,
+        gae_decay: float = 0.98,
+        clipping_param: float = 0.2,
     ) -> torch.Tensor:
         '''
         Computes the PPO objective as a static method
+        Also computes the value target for the critic
         
         Args:
             policy_dist (Normal): Current policy's output distribution given the state
             old_policy_dist (Normal): Frozen policy's output distribution given the state
             actions (Tensor): Continuous action space sampled by the frozen policy and conducted by the agent
-            critic_out (Tensor): Predicted value of the policy's actions
+            rewards (Tensor): Float environment rewards at every step in the rollout
+            dones (Tensor): Boolean flags indicating if an episode has been terminated at every rollout
+            critic_out (Tensor): Predicted value derived from the critic
+            discount_factor (float): MDP discount factor to weight more recent rewards higher in the value computation
+            gae_decay (float): GAE hyperparameter to control TD propagation
+            clipping_param (float): Bounds in which clip the policy ratio
+        
+        Returns:
+            clipped_surrogate_obj (Tensor): PPO policy objected derived from advantage estimations
+            value_target (Tensor: PPO value objective (pre-MSE) derived from the advantage
         '''
-        # Disable gradient computations
-        # Gradients shouldn't flow through policy ratio or advantage computation
-        with torch.no_grad():
-            # Ratio of probabilities of the selected action (mean log probs for multiple continous actions)
-            policy_ratio: torch.Tensor = torch.exp(policy_dist.log_prob(actions) - old_policy_dist.log_prob(actions))
-            gae: torch.Tensor = Actor.gae()
-            
+        # Ratio of probabilities of the selected action (mean log probs for multiple continous actions)
+        policy_ratio: torch.Tensor = torch.exp(policy_dist.log_prob(actions) - old_policy_dist.log_prob(actions))
+        # Advantage and value target computation
+        advantages, value_target = Actor.gae(
+            rewards=rewards,
+            dones=dones,
+            predicted_value=critic_out,
+            discount_factor=discount_factor,
+            gae_decay=gae_decay,
+        )
+        # Scaling the advantages
         clipped_surrogate_obj: torch.Tensor = torch.minimum(
-            gae * policy_ratio,
-            gae * torch.clip(
+            advantages * policy_ratio,
+            advantages * torch.clip(
                 policy_ratio,
                 1 - clipping_param,
                 1 + clipping_param
             ),
         )
+        
+        return clipped_surrogate_obj, value_target
     
     
 class Critic(nn.Module):
