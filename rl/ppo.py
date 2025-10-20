@@ -40,6 +40,7 @@ class Actor(nn.Module):
     
     @classmethod
     def gae(
+        cls,
         rewards: torch.Tensor,
         dones: torch.Tensor,
         critic_out: torch.Tensor,
@@ -71,6 +72,7 @@ class Actor(nn.Module):
     
     @classmethod
     def surrogate_obj(
+        cls,
         policy_dist: torch.distributions.Normal,
         old_policy_dist: torch.distributions.Normal,
         actions: torch.Tensor,
