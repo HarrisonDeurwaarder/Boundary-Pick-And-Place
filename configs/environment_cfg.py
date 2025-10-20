@@ -1,11 +1,11 @@
 import yaml
 
 from isaaclab.envs import DirectRLEnvCfg
-from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.utils import configclass
 from isaaclab.sim import SimulationCfg
 
 from utils.hyperparams import HPARAMS
+from configs.scene_cfg import SceneCfg
 
 
 @configclass
@@ -36,7 +36,7 @@ class EnvCfg(DirectRLEnvCfg):
     ]
     
     # Scene config
-    scene: InteractiveSceneCfg = InteractiveSceneCfg(
+    scene: SceneCfg = SceneCfg(
         num_envs=HPARAMS['scene']['num_envs'],
         env_spacing=HPARAMS['scene']['env_spacing'],
         replicate_physics=HPARAMS['scene']['replicate_physics'],
