@@ -4,6 +4,7 @@ import isaaclab.sim as sim_utils
 from isaaclab.assets import Articulation
 from isaaclab.controllers import OperationalSpaceController, OperationalSpaceControllerCfg
 from isaaclab.scene import InteractiveScene
+from isaaclab.sensor import ContactSensor
 from isaaclab.utils.math import (
     matrix_from_quat,
     quat_apply_inverse,
@@ -25,10 +26,11 @@ def get_osc(sim: sim_utils.SimulationContext,
     cfg: OperationalSpaceControllerCfg = OperationalSpaceControllerCfg(
         target_types=['pose_abs', 'wrench_abs'],
         impedance_mode='variable_kp',
-        inertial_dynamics_decoupling=False,
+        inertial_dynamics_decoupling=True,
+        partial_inertial_dynamics_decoupling=False,
         gravity_compensation=False,
         motion_damping_ratio_task=1.0,
-        contact_wrench_stiffness_task=None, # [0.0, 0.0, 0.1, 0.0, 0.0, 0.0]
+        contact_wrench_stiffness_task=[0.0, 0.0, 0.1, 0.0, 0.0, 0.0],
         motion_control_axes_task=[1, 1, 0, 1, 1, 1],
         contact_wrench_control_axes_task=[0, 0, 1, 0, 0, 0],
         nullspace_control='position',
@@ -41,17 +43,23 @@ def get_osc(sim: sim_utils.SimulationContext,
     return osc
 
     
-def update_states(panda: Articulation,
+def update_states(sim: sim_utils.SimulationContext,
+                  scene: InteractiveScene,
+                  panda: Articulation,
                   ee_frame_idx: int,
-                  arm_joint_ids: list[int],) -> tuple[torch.Tensor]:
+                  arm_joint_ids: list[int],
+                  contact_forces: ContactSensor,) -> tuple[torch.Tensor]:
     '''
     Get the required states for OSC computation
     Contact forces are not explicitily handled for simplicity
     
     Args:
+        sim (SimulationContext): The simulation context
+        scene (InteractiveScene): The interactive scene
         panda (Articulation): The panda articulation
         ee_frame_idx (int): The end-effector frame index
         arm_joint_ids (list[int]): The arm joint indices
+        contact_forces (ContactSensor): The contact sensor
         
     Returns:
         jacobian_b (torch.Tensor): The jacobian in the body frame
@@ -59,6 +67,7 @@ def update_states(panda: Articulation,
         gravity (torch.Tensor): The gravity vector
         ee_pose_b (torch.tensor): The end-effector pose in the body frame
         ee_vel_b (torch.tensor): The end-effector velocity in the body frame
+        ee_force_b (torch.tensor): The end-effector force in the body frame.
         joint_pos (torch.tensor): The joint positions
         joint_vel (torch.tensor): The joint velocities
     '''
@@ -104,6 +113,16 @@ def update_states(panda: Articulation,
         dim=-1,
     )
     
+    # Calculate contact forces
+    sim_dt = sim.get_physics_dt()
+    contact_forces.update(sim_dt)
+    
+    ee_force_w = torch.zeros(scene.num_envs)
+    ee_force_w, _ = torch.max(torch.mean(contact_forces.data.net_forces_w_history, dim=1), dim=1)
+    
+    # Early-stage assumption
+    ee_force_b = ee_force_w
+    
     # Get joint positions and velocities
     joint_pos: torch.Tensor = panda.data.joint_pos[:, arm_joint_ids]
     joint_vel: torch.Tensor = panda.data.joint_vel[:, arm_joint_ids]
@@ -114,8 +133,9 @@ def update_states(panda: Articulation,
         gravity,
         ee_pose_b,
         ee_vel_b,
+        ee_force_b,
         joint_pos,
-        joint_vel
+        joint_vel,
     )
     
     
