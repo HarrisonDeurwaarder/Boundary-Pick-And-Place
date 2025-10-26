@@ -2,6 +2,7 @@ import yaml
 import torch
 import numpy as np
 from collections.abc import Sequence
+from typing import Any
 
 from isaaclab.envs import DirectRLEnvCfg, DirectRLEnv
 from isaaclab.utils import configclass
@@ -21,11 +22,21 @@ class Env(DirectRLEnv):
                  render_mode: str | None = None,
                  **kwargs,) -> None:
         super.__init__(env_cfg, render_mode, **kwargs)
+        # Set up event manager
+        self.event_manager = env_cfg.events
         # Extract panda from scene
         self.panda = self.scene['panda']
         # Extract panda joint IDs
         arm_joint_names = ['panda_link.*']
         self.arm_joint_ids: np.ndarray = self.panda.find_bodies(arm_joint_names)[0]
+    
+    
+    def _step_impl(self,
+                   actions: torch.Tensor,) -> tuple[dict[str, torch.Tensor], torch.Tensor, torch.Tensor, torch.Tensor, dict[str, Any]]:
+        obs, rewards, terminated, truncated, info = super()._step_impl(actions)
+        # Perform interval-based domain randomization
+        self.event_manager.step(self.physics_dt)
+        return obs, rewards, terminated, truncated, info
     
     
     def _pre_physics_step(self, 
@@ -53,7 +64,7 @@ class Env(DirectRLEnv):
     
     
     def _get_rewards(self,) -> torch.Tensor:
-        reward: torch.Tensor = compute_rewards(
+        reward: torch.Tensor = Env.compute_rewards(
             self.cfg.rew_scale_grasp,
             self.cfg.rew_scale_duration,
             self.cfg.rew_scale_distance,
@@ -76,5 +87,12 @@ class Env(DirectRLEnv):
         if env_ids is None:
             env_ids = self.panda._ALL_INDICES
         super._reset_idx(env_ids)
+        # Randomize domains set to mode "reset"
+        self.event_manager.reset(env_ids)
         
-        
+    
+    @torch.jit.script
+    @classmethod
+    def compute_rewards(cls,
+                        *args) -> float:
+        return 0.0

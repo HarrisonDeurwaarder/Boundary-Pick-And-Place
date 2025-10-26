@@ -30,8 +30,8 @@ class SceneCfg(InteractiveSceneCfg):
     # Lighting
     light: AssetBaseCfg = AssetBaseCfg(
         prim_path='{ENV_REGEX_NS}/Light',
-        spawn = sim_utils.DomeLightCfg(intensity=3000.0,
-                                       color = (0.75, 0.75, 0.75)),
+        spawn = sim_utils.DomeLightCfg(intensity=HPARAMS['scene']['light']['intensity'],
+                                       color=HPARAMS['scene']['light']['color']),
     )
     # Panda config
     panda: ArticulationCfg = FRANKA_PANDA_HIGH_PD_CFG.replace(
@@ -40,14 +40,10 @@ class SceneCfg(InteractiveSceneCfg):
             pos=(0.0, 0.0, thickness)
         )
     )
-    panda.actuators["panda_shoulder"].stiffness = 0.0
-    panda.actuators["panda_shoulder"].damping = 0.0
-    panda.actuators["panda_forearm"].stiffness = 0.0
-    panda.actuators["panda_forearm"].damping = 0.0
     
     
     # Room borders
-    dims = torch.rand((3,)) * 10 + 5
+    dims = torch.rand((3,)) * (HPARAMS['scene']['wall'][1] - HPARAMS['scene']['wall'][0]) + HPARAMS['scene']['wall'][0]
     x_bound, y_bound, z_bound = get_rects(dims)
     
     # Generate and place prims
