@@ -17,10 +17,12 @@ class Env(DirectRLEnv):
     '''
     RL environment
     '''
-    def __init__(self,
-                 env_cfg: EnvCfg,
-                 render_mode: str | None = None,
-                 **kwargs,) -> None:
+    def __init__(
+        self,
+        env_cfg: EnvCfg,
+        render_mode: str | None = None,
+        **kwargs,
+    ) -> None:
         super.__init__(env_cfg, render_mode, **kwargs)
         # Set up event manager
         self.event_manager = env_cfg.events
@@ -31,16 +33,20 @@ class Env(DirectRLEnv):
         self.arm_joint_ids: np.ndarray = self.panda.find_bodies(arm_joint_names)[0]
     
     
-    def _step_impl(self,
-                   actions: torch.Tensor,) -> tuple[dict[str, torch.Tensor], torch.Tensor, torch.Tensor, torch.Tensor, dict[str, Any]]:
+    def _step_impl(
+        self,
+        actions: torch.Tensor,
+    ) -> tuple[dict[str, torch.Tensor], torch.Tensor, torch.Tensor, torch.Tensor, dict[str, Any]]:
         obs, rewards, terminated, truncated, info = super()._step_impl(actions)
         # Perform interval-based domain randomization
         self.event_manager.step(self.physics_dt)
         return obs, rewards, terminated, truncated, info
     
     
-    def _pre_physics_step(self, 
-                          actions: torch.Tensor,) -> None:
+    def _pre_physics_step(
+        self, 
+        actions: torch.Tensor,
+    ) -> None:
         self.actions = self.action_scale * actions.clone()
         
     
@@ -81,8 +87,10 @@ class Env(DirectRLEnv):
         return time_out
     
     
-    def _reset_idx(self,
-                   env_ids: Sequence[int] | None = None) -> None:
+    def _reset_idx(
+        self,
+        env_ids: Sequence[int] | None = None
+    ) -> None:
         # Default is all environments
         if env_ids is None:
             env_ids = self.panda._ALL_INDICES
@@ -93,6 +101,8 @@ class Env(DirectRLEnv):
     
     @torch.jit.script
     @classmethod
-    def compute_rewards(cls,
-                        *args) -> float:
+    def compute_rewards(
+        cls,
+        *args
+    ) -> float:
         return 0.0

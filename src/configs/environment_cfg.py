@@ -6,6 +6,7 @@ from isaaclab.sim import SimulationCfg
 
 from utils.hyperparams import HPARAMS
 from configs.scene_cfg import SceneCfg
+from configs.event_cfg import EventCfg
 
 
 @configclass
@@ -24,16 +25,8 @@ class EnvCfg(DirectRLEnvCfg):
     # Sim config
     sim: SimulationCfg = SimulationCfg(dt=1/100)
     
-    # Fill in later
-    joint_names: list = [
-        'joint1',
-        'joint2',
-        'joint3',
-        'joint4',
-        'joint5',
-        'joint6',
-        'joint7',
-    ]
+    # Event config
+    events: EventCfg = EventCfg()
     
     # Scene config
     scene: SceneCfg = SceneCfg(

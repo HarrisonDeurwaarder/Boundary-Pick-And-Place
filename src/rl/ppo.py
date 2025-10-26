@@ -13,13 +13,17 @@ class Actor(nn.Module):
         )
     
     
-    def __call__(self,
-                 state: torch.Tensor,) -> torch.Tensor:
+    def __call__(
+        self,
+        state: torch.Tensor,
+    ) -> torch.Tensor:
         return super().__call__(state)
     
     
-    def forward(self,
-                state: torch.Tensor,) -> torch.distributions.Normal:
+    def forward(
+        self,
+        state: torch.Tensor,
+    ) -> torch.distributions.Normal:
         '''
         Pass a state through the policy for an action
         

@@ -18,11 +18,13 @@ from utils.logger import logging
 from configs.scene_cfg import SceneCfg
 
 
-def run_sim(sim: sim_utils.SimulationContext, 
-            scene: InteractiveScene,
-            pose_dist: Uniform,
-            wrench_dist: Uniform,
-            kp_dist: Uniform,) -> None:
+def run_sim(
+    sim: sim_utils.SimulationContext, 
+    scene: InteractiveScene,
+    pose_dist: Uniform,
+    wrench_dist: Uniform,
+    kp_dist: Uniform,
+) -> None:
     '''
     Runs the simulation
     

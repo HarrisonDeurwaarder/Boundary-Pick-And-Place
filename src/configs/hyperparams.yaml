@@ -6,16 +6,23 @@ env:
   angle_obs_space: 7
   velocity_obs_space: 7
   state_space: 0
+
 scene:
   num_envs: 4096
   env_spacing: 10.0
   replicate_physics: True
   clone_in_fabric: True
-  wall_thickness: 0.1 # [M]
+  wall:
+    wall_bounds: [5, 15] # [M]
+    wall_thickness: 0.1 # [M]
+  light:
+    intensity: 3000
+    color: [0.75, 0.75, 0.75]
   sensor:
     camera_height: 480 # [pixels]
     camera_width: 640 # [pixels]
     force_history_length: 5
+
 event:
   panda:
     material:
@@ -38,6 +45,7 @@ event:
   physics:
     gravity:
       gravity_distribution_params: [[0.0, 0.0, 0.0], [0.0, 0.0, 0.4]]
+      
 reward:
   scale_grasp: 1.0
   scale_duration: -0.1

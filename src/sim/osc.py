@@ -13,8 +13,10 @@ from isaaclab.utils.math import (
 )
 
 
-def get_osc(sim: sim_utils.SimulationContext,
-            scene: InteractiveScene,) -> OperationalSpaceController:
+def get_osc(
+    sim: sim_utils.SimulationContext,
+    scene: InteractiveScene,
+) -> OperationalSpaceController:
     '''
     Instantiate the OSC and return it
     
@@ -43,12 +45,14 @@ def get_osc(sim: sim_utils.SimulationContext,
     return osc
 
     
-def update_states(sim: sim_utils.SimulationContext,
-                  scene: InteractiveScene,
-                  panda: Articulation,
-                  ee_frame_idx: int,
-                  arm_joint_ids: list[int],
-                  contact_forces: ContactSensor,) -> tuple[torch.Tensor]:
+def update_states(
+    sim: sim_utils.SimulationContext,
+    scene: InteractiveScene,
+    panda: Articulation,
+    ee_frame_idx: int,
+    arm_joint_ids: list[int],
+    contact_forces: ContactSensor,
+) -> tuple[torch.Tensor]:
     '''
     Get the required states for OSC computation
     Contact forces are not explicitily handled for simplicity
@@ -139,10 +143,12 @@ def update_states(sim: sim_utils.SimulationContext,
     )
     
     
-def update_target(sim: sim_utils.SimulationContext,
-                  scene: InteractiveScene,
-                  osc: OperationalSpaceController,
-                  ee_target: torch.Tensor,) -> tuple[torch.Tensor, torch.Tensor]:
+def update_target(
+    sim: sim_utils.SimulationContext,
+    scene: InteractiveScene,
+    osc: OperationalSpaceController,
+    ee_target: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor]:
     '''
     Updates the targets for the OSC
     
@@ -180,9 +186,11 @@ def update_target(sim: sim_utils.SimulationContext,
     return command, ee_target_pose_b
 
 
-def convert_to_task_frame(osc: OperationalSpaceController,
-                         command: torch.Tensor,
-                         ee_target_pose_b: torch.Tensor,) -> tuple[torch.Tensor, torch.Tensor]:
+def convert_to_task_frame(
+    osc: OperationalSpaceController,
+    command: torch.Tensor,
+    ee_target_pose_b: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor]:
     '''
     Converts the target commands to the task frame
     

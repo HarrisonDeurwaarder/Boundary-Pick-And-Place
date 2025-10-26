@@ -8,7 +8,10 @@ def timer(func: Callable[..., Any],) -> Callable[..., Any]:
     '''
     Timer decorator, used to get run time of functions while debugging
     '''
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
+    def wrapper(
+        *args: Any, 
+        **kwargs: Any
+    ) -> Any:
         # Get the time prior to function call
         start = time()
         result: Any = func(*args, **kwargs)
