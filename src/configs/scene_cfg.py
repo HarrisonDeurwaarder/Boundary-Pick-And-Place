@@ -5,6 +5,7 @@ from isaaclab.assets import ArticulationCfg, Articulation
 from isaaclab.assets import AssetBaseCfg
 from isaaclab.assets import RigidObjectCfg
 from isaaclab.scene import InteractiveSceneCfg
+from isaaclab.sensors import CameraCfg, ContactSensorCfg
 from isaaclab.utils import configclass
 
 from isaaclab_assets import FRANKA_PANDA_HIGH_PD_CFG
@@ -39,6 +40,32 @@ class SceneCfg(InteractiveSceneCfg):
         init_state=FRANKA_PANDA_HIGH_PD_CFG.init_state.replace(
             pos=(0.0, 0.0, thickness)
         )
+    )
+    
+    
+    # Sensors
+    camera: CameraCfg = CameraCfg(
+        prim_path='{ENV_REGEX_NS}/Panda/panda_hand',
+        update_period=0.1,
+        height=HPARAMS['scene']['sensor']['camera_height'],
+        width=HPARAMS['scene']['sensor']['camera_width'],
+        data_types=['rgb', 'distance_to_image_plane'],
+        spawn=sim_utils.PinholeCameraCfg(
+            focal_length=24.0,
+            focus_distance=400.0,
+            horizonal_aperture=20.955,
+            clipping_range=(0.1, 1.0e5),
+        ),
+        offset=CameraCfg.OffsetCfg(
+            convention='ros'
+        )
+    )
+    
+    contact_forces: ContactSensorCfg = ContactSensorCfg(
+        prim_path='{ENV_REGEX_NS}/Panda/panda_hand',
+        update_period=0.0,
+        history_length=HPARAMS['scene']['force_history_length'],
+        debug_vis=True,
     )
     
     
