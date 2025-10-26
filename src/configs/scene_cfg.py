@@ -11,11 +11,11 @@ from isaaclab.utils import configclass
 from isaaclab_assets import FRANKA_PANDA_HIGH_PD_CFG
 
 import torch
-from utils.scene_setup import get_rects
-from utils.hyperparams import HPARAMS
+from src.utils.scene_setup import get_rects
+from src.utils.hyperparams import HPARAMS
 
 
-thickness: float = HPARAMS['scene']['wall_thickness']
+thickness: float = HPARAMS['scene']['wall']['wall_thickness']
 
 
 @configclass
@@ -38,14 +38,18 @@ class SceneCfg(InteractiveSceneCfg):
     panda: ArticulationCfg = FRANKA_PANDA_HIGH_PD_CFG.replace(
         prim_path='{ENV_REGEX_NS}/Panda',
         init_state=FRANKA_PANDA_HIGH_PD_CFG.init_state.replace(
-            pos=(0.0, 0.0, thickness)
+            pos=(0.0, 0.0, thickness),
+        ),
+        spawn=sim_utils.UsdFileCfg(
+            usd_path=FRANKA_PANDA_HIGH_PD_CFG.spawn.usd_path,
+            activate_contact_sensors=True,
         )
     )
     
     
     # Sensors
     camera: CameraCfg = CameraCfg(
-        prim_path='{ENV_REGEX_NS}/Panda/panda_hand',
+        prim_path='{ENV_REGEX_NS}/Panda/panda_hand/camera',
         update_period=0.1,
         height=HPARAMS['scene']['sensor']['camera_height'],
         width=HPARAMS['scene']['sensor']['camera_width'],
@@ -53,24 +57,24 @@ class SceneCfg(InteractiveSceneCfg):
         spawn=sim_utils.PinholeCameraCfg(
             focal_length=24.0,
             focus_distance=400.0,
-            horizonal_aperture=20.955,
+            horizontal_aperture=20.955,
             clipping_range=(0.1, 1.0e5),
         ),
         offset=CameraCfg.OffsetCfg(
             convention='ros'
-        )
+        ),
     )
     
     contact_forces: ContactSensorCfg = ContactSensorCfg(
-        prim_path='{ENV_REGEX_NS}/Panda/panda_hand',
+        prim_path='{ENV_REGEX_NS}/Panda/panda_hand/contact_forces',
         update_period=0.0,
-        history_length=HPARAMS['scene']['force_history_length'],
+        history_length=HPARAMS['scene']['sensor']['force_history_length'],
         debug_vis=True,
     )
     
     
     # Room borders
-    dims = torch.rand((3,)) * (HPARAMS['scene']['wall'][1] - HPARAMS['scene']['wall'][0]) + HPARAMS['scene']['wall'][0]
+    dims = torch.rand((3,)) * (HPARAMS['scene']['wall']['wall_bounds'][1] - HPARAMS['scene']['wall']['wall_bounds'][0]) + HPARAMS['scene']['wall']['wall_bounds'][0]
     x_bound, y_bound, z_bound = get_rects(dims)
     
     # Generate and place prims

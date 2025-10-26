@@ -1,9 +1,9 @@
 import isaaclab.sim as sim_utils
 import torch
-from utils.hyperparams import HPARAMS
+from src.utils.hyperparams import HPARAMS
 
 
-thickness: float = HPARAMS['scene']['wall_thickness']
+thickness: float = HPARAMS['scene']['wall']['wall_thickness']
 
 
 def get_rects(dims: torch.Tensor,) -> tuple[sim_utils.CuboidCfg]:

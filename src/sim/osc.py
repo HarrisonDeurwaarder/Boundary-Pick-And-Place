@@ -4,7 +4,7 @@ import isaaclab.sim as sim_utils
 from isaaclab.assets import Articulation
 from isaaclab.controllers import OperationalSpaceController, OperationalSpaceControllerCfg
 from isaaclab.scene import InteractiveScene
-from isaaclab.sensor import ContactSensor
+from isaaclab.sensors import ContactSensor
 from isaaclab.utils.math import (
     matrix_from_quat,
     quat_apply_inverse,

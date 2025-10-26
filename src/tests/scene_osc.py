@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from torch.distributions import Uniform
 
-from scripts.launch_app import launch_app
+from src.scripts.launch_app import launch_app
 
 # Define and launch the app
 sim_app, args_cli = launch_app()
@@ -11,11 +11,12 @@ import isaaclab.sim as sim_utils
 from isaaclab.controllers import OperationalSpaceController
 from isaaclab.scene import InteractiveScene
 from isaaclab.assets import Articulation
+from isaaclab.sensors import CameraCfg, ContactSensorCfg
 from isaaclab.sim import SimulationContext, SimulationCfg
 
-from sim.osc import update_states, get_osc, update_target, convert_to_task_frame
-from utils.logger import logging
-from configs.scene_cfg import SceneCfg
+from src.sim.osc import update_states, get_osc, update_target, convert_to_task_frame
+from src.utils.logger import logging
+from src.configs.scene_cfg import SceneCfg
 
 
 def run_sim(
@@ -45,6 +46,7 @@ def run_sim(
     osc: OperationalSpaceController = get_osc(sim, scene,)
     
     sim_dt: float = sim.get_physics_dt()
+    contact_forces: ContactSensorCfg = scene['contact_forces']
     panda: Articulation = scene['panda']
     panda.update(dt=sim_dt)
     
@@ -64,6 +66,7 @@ def run_sim(
         panda=panda,
         ee_frame_idx=ee_frame_idx,
         arm_joint_ids=arm_joint_ids,
+        contact_forces=contact_forces,
     )
     
     command: torch.Tensor = torch.zeros(scene.num_envs, osc.action_dim, device=sim.device)
@@ -94,6 +97,7 @@ def run_sim(
                 panda,
                 ee_frame_idx,
                 arm_joint_ids,
+                contact_forces,
             )
             
             # Sample the action
@@ -136,6 +140,7 @@ def run_sim(
                 panda=panda,
                 ee_frame_idx=ee_frame_idx,
                 arm_joint_ids=arm_joint_ids,
+        contact_forces=contact_forces,
             )
             # Get joint commands
             joint_efforts: torch.Tensor = osc.compute(

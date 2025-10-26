@@ -8,6 +8,9 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
+            "args": [
+                "--enable_cameras",
+            ],
             "env": {
                 "PYTHONPATH": "${workspaceFolder}"
             },
