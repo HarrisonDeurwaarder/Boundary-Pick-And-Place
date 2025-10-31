@@ -1,6 +1,6 @@
 import torch
 
-from scripts.launch_app import launch_app
+from sim.launch_app import launch_app
 
 sim_app, args_cli = launch_app()
     

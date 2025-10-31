@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from torch.distributions import Uniform
 
-from src.scripts.launch_app import launch_app
+from sim.launch_app import launch_app
 
 # Define and launch the app
 sim_app, args_cli = launch_app()
