@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
-import torch.optim as optim
+import torch.nn.functional as F
+
+from utils.hyperparams import HPARAMS
 
 
 class Actor(nn.Module):
@@ -48,8 +50,6 @@ class Actor(nn.Module):
         rewards: torch.Tensor,
         dones: torch.Tensor,
         critic_out: torch.Tensor,
-        discount_factor: float = 0.99,
-        gae_decay: float = 0.98,
     ) -> torch.Tensor:
         '''
         Computes GAE, a low variance/low bias advantage estimation function
@@ -65,58 +65,40 @@ class Actor(nn.Module):
             advantage (Tensor): Low variance/low bias advantage estimations
         '''
         # Pre-compute the TD residuals
-        td_residuals: torch.Tensor = rewards + critic_out[1:] * discount_factor - critic_out[:-1]
+        td_residuals: torch.Tensor = rewards + critic_out[1:] * HPARAMS['rl']['ppo']['discount_factor'] - critic_out[:-1]
         # Iteratively compute GAE
         advantages: torch.Tensor = torch.zeros_like(rewards)
         for t in reversed(td_residuals.size(-1) - 1):
-            advantages[t] = td_residuals[..., t] + discount_factor * gae_decay * (1 - dones[..., t+1]) * advantages[..., t+1]
+            advantages[t] = td_residuals[..., t] + HPARAMS['rl']['ppo']['discount_factor'] * HPARAMS['rl']['ppo']['gae_decay'] * (1 - dones[..., t+1]) * advantages[..., t+1]
         
         return advantages
         
     
     @classmethod
-    def surrogate_obj(
+    def policy_objective(
         cls,
         policy_dist: torch.distributions.Normal,
         old_policy_dist: torch.distributions.Normal,
         actions: torch.Tensor,
-        rewards: torch.Tensor,
-        dones: torch.Tensor,
-        critic_out: torch.Tensor,
-        discount_factor: float = 0.99,
-        gae_decay: float = 0.98,
+        advantages: torch.Tensor,
         clipping_param: float = 0.2,
     ) -> torch.Tensor:
         '''
-        Computes the PPO objective as a static method
-        Also computes the value target for the critic
+        Computes the PPO policy function objective
         
         Args:
             policy_dist (Normal): Current policy's output distribution given the state
-            old_policy_dist (Normal): Frozen policy's output distribution given the state
+            old_policy_dist (Normal): Target policy's output distribution given the state
             actions (Tensor): Continuous action space sampled by the frozen policy and conducted by the agent
-            rewards (Tensor): Float environment rewards at every step in the rollout
-            dones (Tensor): Boolean flags indicating if an episode has been terminated at every rollout
-            critic_out (Tensor): Predicted value derived from the critic
-            discount_factor (float): MDP discount factor to weight more recent rewards higher in the value computation
-            gae_decay (float): GAE hyperparameter to control TD propagation
+            advantages (Tensor): GAE advantages
             clipping_param (float): Bounds in which clip the policy ratio
         
         Returns:
-            clipped_surrogate_obj (Tensor): PPO policy objected derived from advantage estimations
-            advantage (Tensor): Low variance/low bias advantage estimations
+            clipped_surrogate_obj (Tensor): PPO policy objected derived from advantage estimations with entropy bonus
         '''
         # Ratio of probabilities of the selected action (mean log probs for multiple continous actions)
         policy_ratio: torch.Tensor = torch.exp(policy_dist.log_prob(actions) - old_policy_dist.log_prob(actions))
-        # Advantage and value target computation
-        advantages = Actor.gae(
-            rewards=rewards,
-            dones=dones,
-            predicted_value=critic_out,
-            discount_factor=discount_factor,
-            gae_decay=gae_decay,
-        )
-        # Scaling the advantages
+        # Compute underestimate for policy performance
         clipped_surrogate_obj: torch.Tensor = torch.minimum(
             advantages * policy_ratio,
             advantages * torch.clip(
@@ -125,8 +107,13 @@ class Actor(nn.Module):
                 1 + clipping_param
             ),
         )
+        # Compute entropy term for added exploration
+        entropy: torch.Tensor = policy_dist.entropy()
         
-        return clipped_surrogate_obj, advantages
+        return -torch.mean(
+            clipped_surrogate_obj + HPARAMS['rl']['ppo']['entropy_coefficient'] * entropy,
+            dim=-1,
+        )
     
     
 class Critic(nn.Module):
@@ -160,3 +147,28 @@ class Critic(nn.Module):
             action (Tensor): OSC-required inputs
         '''
         return self.net(state,)
+    
+    
+    @classmethod
+    def critic_objective(
+        cls,
+        critic_outs: torch.Tensor,
+        old_critic_outs: torch.Tensor,
+        advanatges: torch.Tensor,
+    ) -> torch.Tensor:
+        '''
+        Compute the PPO value function objective
+        
+        Args:
+            critic_outs (torch.Tensor): Predicted value of the current policy
+            old_critic_outs (torch.Tensor): Predicted value of the target policy
+            advantages (torch.Tensor): GAE advantages
+            
+        Returns:
+            critic_objective (torch.Tensor): MSE critic objective
+        '''
+        target_value: torch.Tensor = advanatges + old_critic_outs
+        return F.mse_loss(
+            critic_outs,
+            target_value,
+        )
