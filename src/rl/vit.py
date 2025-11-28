@@ -9,8 +9,10 @@ from utils.hyperparams import HPARAMS
 class Encoder(nn.Module):
     '''
     Vision transformer encoder
+    Generates a depth map 
     '''
     def __init__(self,) -> None:
+        super.__init__()
         # Initialize the parameters
         self.pe = PositionalEncodings()
         self.encoder = nn.TransformerEncoder(
@@ -53,7 +55,32 @@ class Encoder(nn.Module):
         # Apply PEs
         patches = self.pe(patches)
         # Feed through encoder
-        return self.encoder(patches)
+        return self.encoder(patches)[..., 0, :] # Extract fixed-size latent representation
+    
+    
+    @classmethod
+    def vit_objective(
+        cls,
+        depths: torch.Tensor,
+        target_depths: torch.Tensor,
+        logvars: torch.Tensor,
+    ) -> torch.Tensor:
+        '''
+        Evaluates the loss of the depth and variance (inverse confidence) maps using Gaussian NLL loss
+        
+        Args:
+            depths (torch.Tensor): Predicted depth map based on the RGB scene image
+            target_depths (torch.Tensor): Target depth map using sensor data
+            logvars (torch.Tensor): Predicted (log) variance of estimation (inverse of confidence)
+            
+        Returns:
+            loss (torch.Tensor): Gaussian negative log-likelihood lose optimizing both predictions and logvars
+        '''
+        return F.gaussian_nll_loss(
+            depths,
+            target_depths,
+            torch.exp(logvars),
+        )
         
 
 class PositionalEncodings(nn.Module):
@@ -61,6 +88,7 @@ class PositionalEncodings(nn.Module):
     Learned positional encodings for vision transformer
     '''
     def __init__(self,) -> None:
+        super().__init__()
         # Initialize distribution used to sample params
         distribution = dist.Uniform(
             -1 / HPARAMS['rl']['vit']['patch_size'],
