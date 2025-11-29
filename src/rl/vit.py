@@ -19,12 +19,29 @@ class Encoder(nn.Module):
             encoder_layer=nn.TransformerEncoderLayer(
                 d_model=HPARAMS['rl']['vit']['patch_size'] ** 2,
                 nhead=HPARAMS['rl']['vit']['nhead'],
-                dim_feedforward=HPARAMS['rl']['vit']['dim_feedforward'],
+                dim_feedforward=HPARAMS['rl']['vit']['dim_feedforward_encoder'],
                 dropout=HPARAMS['rl']['dropout'],
                 activation=F.gelu,
             ),
             num_layers=6,
         )
+        self.dense = nn.Sequential(
+            nn.Linear(
+                HPARAMS['rl']['vit']['image_size'][0] * HPARAMS['rl']['vit']['image_size'][1],
+                HPARAMS['rl']['vit']['dim_feedforward_conv'],
+            ),
+            nn.ReLU(),
+            nn.Linear(
+                HPARAMS['rl']['vit']['dim_feedforward_conv'],
+                HPARAMS['rl']['vit']['patch_size']
+            )
+        )
+        # Construct the depth map and logvars (variance = inverse certainty)
+        self.conv = nn.ConvTranspose2d(
+                in_channels=1,
+                out_channels=2, # Depth and logvar maps
+                kernel_size=HPARAMS['rl']['vit']['kernel_size'],
+            )
         
         
     def forward(
@@ -32,18 +49,18 @@ class Encoder(nn.Module):
         pixels: torch.Tensor,
     ) -> torch.Tensor:
         '''
-        Generates a context vector based on the pixels
-        This vector is used to train the decoder, and later, the policy
+        Generates a depth map
         
         Args:
             pixels (Tensor): Unflattened pixel tensor of the image
             
         Returns:
-            out (Tensor): Context vector
+            depths (Tensor): Predicted depth map of the RGB image
+            logvars (Tensor): Corresponding log-variances of the predicted depth distributions
         '''
         # Patch images across width and height
         # Then flatten the last dimensions
-        patches = pixels.unfold(
+        patches: torch.Tensor = pixels.unfold(
             dimension=-2,
             size=HPARAMS['rl']['vit']['patch_size'],
             step=HPARAMS['rl']['vit']['patch_size'],
@@ -55,7 +72,13 @@ class Encoder(nn.Module):
         # Apply PEs
         patches = self.pe(patches)
         # Feed through encoder
-        return self.encoder(patches)[..., 0, :] # Extract fixed-size latent representation
+        out: torch.Tensor = self.encoder(patches)[..., 0, :] # Extract fixed-size latent representation
+        # Final dense layer and transposed convolution
+        out = self.conv(
+            self.dense(out),
+        )
+        # Split depths and logvars
+        return out[..., 0], out[..., 1]
     
     
     @classmethod
@@ -69,12 +92,12 @@ class Encoder(nn.Module):
         Evaluates the loss of the depth and variance (inverse confidence) maps using Gaussian NLL loss
         
         Args:
-            depths (torch.Tensor): Predicted depth map based on the RGB scene image
-            target_depths (torch.Tensor): Target depth map using sensor data
-            logvars (torch.Tensor): Predicted (log) variance of estimation (inverse of confidence)
+            depths (Tensor): Predicted depth map based on the RGB scene image
+            target_depths (Tensor): Target depth map using sensor data
+            logvars (Tensor): Predicted (log) variance of estimation (inverse of confidence)
             
         Returns:
-            loss (torch.Tensor): Gaussian negative log-likelihood lose optimizing both predictions and logvars
+            loss (Tensor): Gaussian negative log-likelihood lose optimizing both predictions and logvars
         '''
         return F.gaussian_nll_loss(
             depths,
