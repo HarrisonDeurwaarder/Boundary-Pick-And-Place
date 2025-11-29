@@ -27,13 +27,16 @@ rl:
   ppo:
     discount_factor: 0.99
     gae_decay: 0.98
+    entropy_coefficient: 0.01
   vit:
     image_size: [1028, 1028] # [pixels]
     patch_size: 16 # [pixels]
     encoder:
       n_head: 8
-      dim_feedforward: 1028
+      dim_feedforward_encoder: 1028
       num_layers: 6
+      dim_feedforward_conv: 512
+      kernel_size: 3
   dropout: 0.1
 
 event:

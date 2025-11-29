@@ -10,6 +10,7 @@ class Actor(nn.Module):
     The policy network
     '''
     def __init__(self,) -> None:
+        super().__init__()
         self.net: nn.Sequential = nn.Sequential(
             ...
         )
@@ -118,9 +119,10 @@ class Actor(nn.Module):
     
 class Critic(nn.Module):
     '''
-    The policy network
+    The value network
     '''
     def __init__(self,) -> None:
+        super().__init__()
         self.net = nn.Sequential(
             ...
         )
@@ -160,9 +162,9 @@ class Critic(nn.Module):
         Compute the PPO value function objective
         
         Args:
-            critic_outs (torch.Tensor): Predicted value of the current policy
-            old_critic_outs (torch.Tensor): Predicted value of the target policy
-            advantages (torch.Tensor): GAE advantages
+            critic_outs (Tensor): Predicted value of the current policy
+            old_critic_outs (Tensor): Predicted value of the target policy
+            advantages (Tensor): GAE advantages
             
         Returns:
             critic_objective (torch.Tensor): MSE critic objective
