@@ -4,8 +4,8 @@ from sim.launch_app import launch_app
 
 sim_app, args_cli = launch_app()
     
-from configs.scene_cfg import SceneCfg
-from utils.logger import logging
+from src.configs.scene_cfg import SceneCfg
+from src.utils.logger import logging
     
 from isaaclab.scene import InteractiveScene, InteractiveSceneCfg
 from isaaclab.sim import SimulationContext, SimulationCfg

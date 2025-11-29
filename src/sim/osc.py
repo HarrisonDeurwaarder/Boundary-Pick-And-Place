@@ -21,8 +21,9 @@ def get_osc(
     Instantiate the OSC and return it
     
     Args:
-        sim (SimulationContext): The simulation context
-        scene (InteractiveScene): The interactive scene
+        tuple[SimulationContext, InteractiveScene]: A tuple containing:
+            - sim: The simulation context
+            - scene: The interactive scene
     '''
     # Construct the OSC
     cfg: OperationalSpaceControllerCfg = OperationalSpaceControllerCfg(
@@ -66,14 +67,15 @@ def update_states(
         contact_forces (ContactSensor): The contact sensor
         
     Returns:
-        jacobian_b (torch.Tensor): The jacobian in the body frame
-        mass_mat (torch.Tensor): The mass matrix
-        gravity (torch.Tensor): The gravity vector
-        ee_pose_b (torch.tensor): The end-effector pose in the body frame
-        ee_vel_b (torch.tensor): The end-effector velocity in the body frame
-        ee_force_b (torch.tensor): The end-effector force in the body frame.
-        joint_pos (torch.tensor): The joint positions
-        joint_vel (torch.tensor): The joint velocities
+        tuple[Tensor, ...]: A tuple containing:
+            - jacobian_b: The jacobian in the body frame
+            - mass_mat: The mass matrix
+            - gravity: The gravity vector
+            - ee_pose_b: The end-effector pose in the body frame
+            - ee_vel_b: The end-effector velocity in the body frame
+            - ee_force_b: The end-effector force in the body frame.
+            - joint_pos: The joint positions
+            - joint_vel: The joint velocities
     '''
     # Align frame indices with 0-start indexing
     ee_jacobi_idx: int = ee_frame_idx - 1
@@ -159,9 +161,10 @@ def update_target(
         ee_target: (torch.tensor): End-effector target
         
     Returns:
-        command (torch.Tensor): The updated target command
-        ee_target_pose_b (torch.Tensor): the updated target pose in the body frame
-        next_goal_idx (int): The next goal index
+        tuple[Tensor, Tensor, int]: A tuple containing
+            - command: The updated target command
+            - ee_target_pose_b: the updated target pose in the body frame
+            - next_goal_idx: The next goal index
     '''
     # Update the EE's desired command
     command = torch.zeros(
@@ -200,8 +203,9 @@ def convert_to_task_frame(
         ee_target_pose_b (torch.Tensor): Target pose in the body frame
         
     Returns:
-        command (torch.Tensor): The converted target command in the task frame
-        task_frame_pose_b (torch.Tensor): Target pose in the task frame
+        tuple[Tensor, ...]: A tuple containing:
+            - command: The converted target command in the task frame
+            - task_frame_pose_b: Target pose in the task frame
     '''
     command = command.clone()
     task_frame_pose_b = ee_target_pose_b.clone()

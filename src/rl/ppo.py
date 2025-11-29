@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from utils.hyperparams import HPARAMS
+from src.utils.hyperparams import HPARAMS
 
 
 class Actor(nn.Module):
@@ -34,7 +34,7 @@ class Actor(nn.Module):
             state (Tensor): Location/velocity data of the panda along with boundary vector
             
         Returns:
-            action (Tensor): OSC-required inputs
+            Tensor: OSC-required inputs
         '''
         # Chunk the outputs into distribution parameters
         dist_params = torch.chunk(self.net(state), chunks=2, dim=-1)
@@ -63,7 +63,7 @@ class Actor(nn.Module):
             gae_decay (float): GAE hyperparameter to control TD propagation
         
         Returns:
-            advantage (Tensor): Low variance/low bias advantage estimations
+            Tensor: Low variance/low bias advantage estimations
         '''
         # Pre-compute the TD residuals
         td_residuals: torch.Tensor = rewards + critic_out[1:] * HPARAMS['rl']['ppo']['discount_factor'] - critic_out[:-1]
@@ -95,7 +95,7 @@ class Actor(nn.Module):
             clipping_param (float): Bounds in which clip the policy ratio
         
         Returns:
-            clipped_surrogate_obj (Tensor): PPO policy objected derived from advantage estimations with entropy bonus
+            Tensor: PPO policy objected derived from advantage estimations with entropy bonus
         '''
         # Ratio of probabilities of the selected action (mean log probs for multiple continous actions)
         policy_ratio: torch.Tensor = torch.exp(policy_dist.log_prob(actions) - old_policy_dist.log_prob(actions))
@@ -146,7 +146,7 @@ class Critic(nn.Module):
             state (Tensor): Location/velocity data of the panda along with boundary vector
             
         Returns:
-            action (Tensor): OSC-required inputs
+            Tensor: OSC-required inputs
         '''
         return self.net(state,)
     
@@ -167,7 +167,7 @@ class Critic(nn.Module):
             advantages (Tensor): GAE advantages
             
         Returns:
-            critic_objective (torch.Tensor): MSE critic objective
+            Tensor: MSE critic objective
         '''
         target_value: torch.Tensor = advanatges + old_critic_outs
         return F.mse_loss(

@@ -5,7 +5,7 @@ from isaaclab.managers import EventTermCfg
 from isaaclab.envs import mdp
 from isaaclab.scene import SceneEntityCfg
 
-from utils.hyperparams import HPARAMS
+from src.utils.hyperparams import HPARAMS
 
 
 @configclass

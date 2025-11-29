@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from torch.distributions import Uniform
 
-from sim.launch_app import launch_app
+from src.sim.launch_app import launch_app
 
 # Define and launch the app
 sim_app, args_cli = launch_app()
@@ -60,9 +60,12 @@ def run_sim(
         gravity,
         ee_pose_b,
         ee_vel_b,
+        ee_force_b,
         joint_pos,
         joint_vel,
     ) = update_states(
+        sim=sim,
+        scene=scene,
         panda=panda,
         ee_frame_idx=ee_frame_idx,
         arm_joint_ids=arm_joint_ids,
@@ -93,11 +96,13 @@ def run_sim(
             panda.reset()
             # Reset target pose
             panda.update(sim_dt)
-            _, _, _, ee_pose_b, _, _, _, = update_states(
-                panda,
-                ee_frame_idx,
-                arm_joint_ids,
-                contact_forces,
+            _, _, _, ee_pose_b, _, _, _, _ = update_states(
+                sim=sim,
+                scene=scene,
+                panda=panda,
+                ee_frame_idx=ee_frame_idx,
+                arm_joint_ids=arm_joint_ids,
+                contact_forces=contact_forces,
             )
             
             # Sample the action
@@ -134,19 +139,23 @@ def run_sim(
                 gravity,
                 ee_pose_b, 
                 ee_vel_b,
+                ee_force_b,
                 joint_pos,
                 joint_vel
             ) = update_states(
+                sim=sim,
+                scene=scene,
                 panda=panda,
                 ee_frame_idx=ee_frame_idx,
                 arm_joint_ids=arm_joint_ids,
-        contact_forces=contact_forces,
+                contact_forces=contact_forces,
             )
             # Get joint commands
             joint_efforts: torch.Tensor = osc.compute(
                 jacobian_b=jacobian_b,
                 current_ee_pose_b=ee_pose_b,
                 current_ee_vel_b=ee_vel_b,
+                current_ee_force_b=ee_force_b,
                 mass_matrix=mass_mat,
                 gravity=gravity,
                 current_joint_pos=joint_pos,

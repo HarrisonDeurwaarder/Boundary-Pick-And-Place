@@ -66,7 +66,7 @@ class SceneCfg(InteractiveSceneCfg):
     )
     
     contact_forces: ContactSensorCfg = ContactSensorCfg(
-        prim_path='{ENV_REGEX_NS}/Panda/panda_hand/contact_forces',
+        prim_path='{ENV_REGEX_NS}/Panda/panda_hand',
         update_period=0.0,
         history_length=HPARAMS['scene']['sensor']['force_history_length'],
         debug_vis=True,

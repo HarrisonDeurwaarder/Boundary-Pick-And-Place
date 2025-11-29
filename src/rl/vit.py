@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.distributions as dist
 
-from utils.hyperparams import HPARAMS
+from src.utils.hyperparams import HPARAMS
 
 
 class Encoder(nn.Module):
@@ -55,8 +55,9 @@ class Encoder(nn.Module):
             pixels (Tensor): Unflattened pixel tensor of the image
             
         Returns:
-            depths (Tensor): Predicted depth map of the RGB image
-            logvars (Tensor): Corresponding log-variances of the predicted depth distributions
+            tuple[Tensor]: A tuple containing:
+                - depths: Predicted depth map of the RGB image
+                - logvars: Corresponding log-variances of the predicted depth distributions
         '''
         # Patch images across width and height
         # Then flatten the last dimensions
@@ -97,7 +98,7 @@ class Encoder(nn.Module):
             logvars (Tensor): Predicted (log) variance of estimation (inverse of confidence)
             
         Returns:
-            loss (Tensor): Gaussian negative log-likelihood lose optimizing both predictions and logvars
+            loss: Gaussian negative log-likelihood lose optimizing both predictions and logvars
         '''
         return F.gaussian_nll_loss(
             depths,
@@ -137,6 +138,6 @@ class PositionalEncodings(nn.Module):
             x (Tensor): Flattened patches
             
         Returns:
-            out (Tensor): Positionally encoded patches
+            Tensor: Positionally encoded patches
         '''
         return x + self.encodings

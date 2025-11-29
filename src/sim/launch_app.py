@@ -14,8 +14,9 @@ def launch_app(*args: Argument) -> tuple:
         *args (dict[Literal['flag', 'type', 'default', 'help'], str | type | Any]): Dictionaries containing all required parameters of a argument to add to the parser
     
     Returns:
-        simulation_app (SimulationApp): The launched app
-        args_cli (argparse.Namespace): The arguments passed via CLI excecution
+        tuple[SimulationApp, argpase.Namespace]: A tuple containing:
+            - simulation_app: The launched app
+            - args_cli: The arguments passed via CLI excecution
         
     '''
     # Define the argument parser

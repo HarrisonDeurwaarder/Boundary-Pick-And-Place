@@ -14,9 +14,10 @@ def get_rects(dims: torch.Tensor,) -> tuple[sim_utils.CuboidCfg]:
         dim (torch.Tensor): (x, y, z) room dimensions
         
     Returns:
-        boundary_x (CuboidCfg): Primative cuboid for the x-dim walls
-        boundary_y (CuboidCfg): Primative cuboid for the y-dim walls
-        boundary_z (CuboidCfg): Primative cuboid for the z-dim walls
+        tuple[CuboidCfg, ...]: A tuple containing:
+            - boundary_x: Primative cuboid for the x-dim walls
+            - boundary_y: Primative cuboid for the y-dim walls
+            - boundary_z: Primative cuboid for the z-dim walls
     '''
     get_boundary = lambda scale: sim_utils.CuboidCfg(
         size=scale,

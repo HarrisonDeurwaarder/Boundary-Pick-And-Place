@@ -4,9 +4,9 @@ from isaaclab.envs import DirectRLEnvCfg
 from isaaclab.utils import configclass
 from isaaclab.sim import SimulationCfg
 
-from utils.hyperparams import HPARAMS
-from configs.scene_cfg import SceneCfg
-from configs.event_cfg import EventCfg
+from src.utils.hyperparams import HPARAMS
+from src.configs.scene_cfg import SceneCfg
+from src.configs.event_cfg import EventCfg
 
 
 @configclass

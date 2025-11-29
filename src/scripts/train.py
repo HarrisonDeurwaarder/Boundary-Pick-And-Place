@@ -13,8 +13,8 @@ from isaaclab.scene import InteractiveScene
 from isaaclab.assets import Articulation
 from isaaclab.sim import SimulationContext, SimulationCfg
 
-from sim.osc import update_states, get_osc, update_target, convert_to_task_frame
-from utils.logger import logging
+from src.sim.osc import update_states, get_osc, update_target, convert_to_task_frame
+from src.utils.logger import logging
 from configs.scene_cfg import SceneCfg
 
 
