@@ -4,9 +4,10 @@ import argparse
 from typing import Any, Literal
 
 
-Argument = dict[Literal['flag', 'type', 'default', 'help'], str | type | Any]
-
-def launch_app(*args: Argument) -> tuple:
+def launch_app(
+    *runtime_args: dict[Literal['flag', 'type', 'default', 'help'], str | type | Any],
+    **static_args: Any
+) -> tuple:
     '''
     Launch the app with the required flags
     
@@ -21,7 +22,7 @@ def launch_app(*args: Argument) -> tuple:
     '''
     # Define the argument parser
     parser: argparse.ArgumentParser = argparse.ArgumentParser(description='Pick-and-place Franka Panda using boundary points')
-    for arg in args:
+    for arg in runtime_args:
         parser.add_argument(
             arg['flag'],
             type=arg['type'],
@@ -33,7 +34,7 @@ def launch_app(*args: Argument) -> tuple:
     args_cli: argparse.Namespace = parser.parse_args()
     
     # Launch IsaacSim with given args
-    app_launcher: AppLauncher = AppLauncher(args_cli)
+    app_launcher: AppLauncher = AppLauncher(**static_args)
     simulation_app: SimulationApp = app_launcher.app
     
     return simulation_app, args_cli
