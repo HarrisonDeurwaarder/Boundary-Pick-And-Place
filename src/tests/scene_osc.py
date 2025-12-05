@@ -5,7 +5,7 @@ from torch.distributions import Uniform
 from src.sim.launch_app import launch_app
 
 # Define and launch the app
-sim_app, args_cli = launch_app()
+sim_app, args_cli = launch_app(enable_cameras=True)
 
 import isaaclab.sim as sim_utils
 from isaaclab.controllers import OperationalSpaceController
@@ -16,6 +16,7 @@ from isaaclab.sim import SimulationContext, SimulationCfg
 
 from src.sim.osc import update_states, get_osc, update_target, convert_to_task_frame
 from src.utils.logger import logging
+from src.utils.hyperparams import HPARAMS
 from src.configs.scene_cfg import SceneCfg
 
 
@@ -81,7 +82,7 @@ def run_sim(
     # The joint efforts touched by the OSC
     joint_efforts: torch.Tensor = torch.zeros(scene.num_envs, len(arm_joint_ids), device=sim.device)
 
-    '''Simulation Loop'''
+    ''' Simulation Loop '''
     count: int = 0
     while sim_app.is_running():
         # Episode reset procedure
@@ -188,7 +189,7 @@ def main() -> None:
     # Design the scene and reset it
     scene_cfg: SceneCfg = SceneCfg(
         num_envs=9,
-        env_spacing=20.0,
+        env_spacing=20.0
     )
     scene: InteractiveScene = InteractiveScene(scene_cfg,)
     sim.reset()

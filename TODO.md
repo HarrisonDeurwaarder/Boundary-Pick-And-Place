@@ -1,0 +1,1 @@
+Note: Indicate that local installation of IsaacLab was modified according to https://github.com/isaac-sim/IsaacLab/issues/3758

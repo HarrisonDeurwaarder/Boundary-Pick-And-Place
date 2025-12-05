@@ -3,7 +3,7 @@ import torch
 from src.utils.hyperparams import HPARAMS
 
 
-thickness: float = HPARAMS['scene']['wall']['wall_thickness']
+thickness: float = HPARAMS['scene']['room']['wall_thickness']
 
 
 def get_rects(dims: torch.Tensor,) -> tuple[sim_utils.CuboidCfg]:
