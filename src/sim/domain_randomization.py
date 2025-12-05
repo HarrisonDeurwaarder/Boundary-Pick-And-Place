@@ -12,10 +12,11 @@ from pxr import Sdf, Gf, UsdGeom, Vt
 import torch
 from typing import Sequence
 
-from src.utils.hyperparams import HPARAMS
+from utils.config import load_config
 
 
-thickness: float = HPARAMS['scene']['room']['wall_thickness']
+CONFIG = load_config('panda_train')
+thickness: float = CONFIG['scene']['room']['wall_thickness']
 
 
 def randomize_room_dimensions(

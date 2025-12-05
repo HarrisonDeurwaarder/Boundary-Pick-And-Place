@@ -1,6 +1,6 @@
 import isaaclab.sim as sim_utils
 import torch
-from src.utils.hyperparams import HPARAMS
+from utils.config import HPARAMS
 
 
 thickness: float = HPARAMS['scene']['room']['wall_thickness']

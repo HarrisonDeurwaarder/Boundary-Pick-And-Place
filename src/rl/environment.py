@@ -8,9 +8,8 @@ from isaaclab.envs import DirectRLEnvCfg, DirectRLEnv
 from isaaclab.utils import configclass
 from isaaclab.sim import SimulationCfg
 
-from src.utils.hyperparams import HPARAMS
-from src.configs.scene_cfg import SceneCfg
-from src.configs.environment_cfg import EnvCfg
+from configs.python.scene_cfg import SceneCfg
+from configs.python.environment_cfg import EnvCfg
 
     
 class Env(DirectRLEnv):

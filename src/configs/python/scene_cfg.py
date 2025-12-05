@@ -12,10 +12,13 @@ from isaaclab_assets import FRANKA_PANDA_HIGH_PD_CFG
 
 import torch
 from src.utils.scene_setup import get_rects
-from src.utils.hyperparams import HPARAMS
+from utils.config import load_config
 
 
-thickness: float = HPARAMS['scene']['room']['wall_thickness']
+CONFIG = load_config('panda_train')
+
+
+thickness: float = CONFIG['scene']['room']['wall_thickness']
 # Default wall spawn, prior to DR
 default_spawn: sim_utils.CuboidCfg = sim_utils.CuboidCfg(
     size=(1.0, 1.0, 1.0),
@@ -45,8 +48,8 @@ class SceneCfg(InteractiveSceneCfg):
     # Lighting
     light: AssetBaseCfg = AssetBaseCfg(
         prim_path='{ENV_REGEX_NS}/Light',
-        spawn = sim_utils.DomeLightCfg(intensity=HPARAMS['scene']['light']['intensity'],
-                                       color=tuple(HPARAMS['scene']['light']['color'])),
+        spawn = sim_utils.DomeLightCfg(intensity=CONFIG['scene']['light']['intensity'],
+                                       color=tuple(CONFIG['scene']['light']['color'])),
     )
     # Panda config
     panda: ArticulationCfg = FRANKA_PANDA_HIGH_PD_CFG.replace(
@@ -64,8 +67,8 @@ class SceneCfg(InteractiveSceneCfg):
     camera: CameraCfg = CameraCfg(
         prim_path='{ENV_REGEX_NS}/Panda/panda_hand/camera',
         update_period=0.1,
-        height=HPARAMS['scene']['sensor']['camera_height'],
-        width=HPARAMS['scene']['sensor']['camera_width'],
+        height=CONFIG['scene']['sensor']['camera_height'],
+        width=CONFIG['scene']['sensor']['camera_width'],
         data_types=['rgb', 'distance_to_image_plane'],
         spawn=sim_utils.PinholeCameraCfg(
             focal_length=24.0,
@@ -81,7 +84,7 @@ class SceneCfg(InteractiveSceneCfg):
     contact_forces: ContactSensorCfg = ContactSensorCfg(
         prim_path='{ENV_REGEX_NS}/Panda/panda_hand',
         update_period=0.0,
-        history_length=HPARAMS['scene']['sensor']['force_history_length'],
+        history_length=CONFIG['scene']['sensor']['force_history_length'],
         debug_vis=True,
     )
     

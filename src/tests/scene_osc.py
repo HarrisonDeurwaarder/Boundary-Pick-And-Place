@@ -16,8 +16,7 @@ from isaaclab.sim import SimulationContext, SimulationCfg
 
 from src.sim.osc import update_states, get_osc, update_target, convert_to_task_frame
 from src.utils.logger import logging
-from src.utils.hyperparams import HPARAMS
-from src.configs.scene_cfg import SceneCfg
+from configs.python.scene_cfg import SceneCfg
 
 
 def run_sim(
