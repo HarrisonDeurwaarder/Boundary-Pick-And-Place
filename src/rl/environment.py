@@ -23,9 +23,7 @@ class Env(DirectRLEnv):
         render_mode: str | None = None,
         **kwargs,
     ) -> None:
-        super.__init__(env_cfg, render_mode, **kwargs)
-        # Set up event manager
-        self.event_manager = env_cfg.events
+        super().__init__(env_cfg, render_mode, **kwargs)
         # Extract panda from scene
         self.panda = self.scene['panda']
         # Extract panda joint IDs
@@ -40,6 +38,8 @@ class Env(DirectRLEnv):
         obs, rewards, terminated, truncated, info = super()._step_impl(actions)
         # Perform interval-based domain randomization
         self.event_manager.step(self.physics_dt)
+        # Update panda buffers
+        self.panda.update(self.physics_dt)
         return obs, rewards, terminated, truncated, info
     
     
@@ -47,7 +47,7 @@ class Env(DirectRLEnv):
         self, 
         actions: torch.Tensor,
     ) -> None:
-        self.actions = self.action_scale * actions.clone()
+        self.actions = self.cfg.action_scale * actions.clone()
         
     
     def _apply_action(self,) -> None:
@@ -70,7 +70,7 @@ class Env(DirectRLEnv):
     
     
     def _get_rewards(self,) -> torch.Tensor:
-        reward: torch.Tensor = Env.compute_rewards(
+        '''reward: torch.Tensor = Env.compute_rewards(
             self.cfg.rew_scale_grasp,
             self.cfg.rew_scale_duration,
             self.cfg.rew_scale_distance,
@@ -78,31 +78,34 @@ class Env(DirectRLEnv):
             self.cfg.rew_scale_contact,
             self.panda,
             self.reset_terminated
-        )
+        )'''
+        reward: torch.Tensor = torch.zeros((self.num_envs))
         return reward
     
     
     def _get_dones(self,) -> tuple[torch.Tensor, torch.Tensor]:
         time_out = self.episode_length_buf >= self.max_episode_length - 1
-        return time_out
+        return time_out, False # For debugging, environment will reset if not due to truncation
     
     
     def _reset_idx(
         self,
         env_ids: Sequence[int] | None = None
     ) -> None:
+        # Pause sim for USD modifications
+        self.sim.pause()
         # Default is all environments
         if env_ids is None:
             env_ids = self.panda._ALL_INDICES
-        super._reset_idx(env_ids)
+        super()._reset_idx(env_ids)
         # Randomize domains set to mode "reset"
         self.event_manager.reset(env_ids)
+        self.sim.play()
         
     
-    @torch.jit.script
     @classmethod
+    @torch.jit.script
     def compute_rewards(
         cls,
-        *args
     ) -> float:
         return 0.0
