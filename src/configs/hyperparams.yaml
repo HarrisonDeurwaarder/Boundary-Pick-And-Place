@@ -8,12 +8,16 @@ env:
   state_space: 0
 
 scene:
-  num_envs: 4096
+  num_envs: 1
   env_spacing: 10.0
   replicate_physics: True
   clone_in_fabric: True
-  wall:
-    wall_bounds: [5, 15] # [M]
+  dt: 0.01
+  render_interval: 2
+  room:
+    x_range: [5, 15] # [M]
+    y_range: [5, 15] # [M]
+    z_range: [3, 10] # [M]
     wall_thickness: 0.1 # [M]
   light:
     intensity: 3000
@@ -54,8 +58,10 @@ event:
     joint_params:
       friction_distribution_params: [0.85, 1.15]
       armature_distribution_params: [0.75, 1.25]
+    force_torque:
       force_range: [-2.0, 2.0]
       torque_range: [-0.4, 0.4]
+    reset_joints:
       position_range: [0.7, 1.3]
       velocity_range: [0.5, 1.5]
   physics:
