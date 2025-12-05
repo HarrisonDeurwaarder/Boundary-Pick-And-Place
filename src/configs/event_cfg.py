@@ -3,9 +3,10 @@ from isaaclab.utils import configclass
 
 from isaaclab.managers import EventTermCfg
 from isaaclab.envs import mdp
-from isaaclab.scene import SceneEntityCfg
+from isaaclab.managers import SceneEntityCfg
 
 from src.utils.hyperparams import HPARAMS
+from src.sim.domain_randomization import randomize_room_dimensions
 
 
 @configclass
@@ -42,38 +43,38 @@ class EventCfg:
         mode='reset',
         params={
             'asset_cfg': SceneEntityCfg('panda', body_names='.*'),
-            'mass_distribution_params': HPARAMS['event']['panda']['actuator_gains']['mass_distribution_params'],
+            'mass_distribution_params': HPARAMS['event']['panda']['mass']['mass_distribution_params'],
             'operation': 'scale',
             'distribution': 'log_uniform',
         },
     )
-    panda_mass: EventTermCfg = EventTermCfg(
+    panda_joint_params: EventTermCfg = EventTermCfg(
         func=mdp.randomize_joint_parameters,
         mode='reset',
         params={
             'asset_cfg': SceneEntityCfg('panda', body_names='.*'),
-            'friction_distribution_params': HPARAMS['event']['panda']['actuator_gains']['friction_distribution_params'],
-            'armature_distribution_params': HPARAMS['event']['panda']['actuator_gains']['armature_distribution_params'],
+            'friction_distribution_params': HPARAMS['event']['panda']['joint_params']['friction_distribution_params'],
+            'armature_distribution_params': HPARAMS['event']['panda']['joint_params']['armature_distribution_params'],
             'operation': 'scale',
             'distribution': 'log_uniform',
         },
     )
     panda_ext_force_torque: EventTermCfg = EventTermCfg(
-        func=mdp.randomize_joint_parameters,
+        func=mdp.apply_external_force_torque,
         mode='reset',
         params={
             'asset_cfg': SceneEntityCfg('panda', body_names='.*'),
-            'force_range': HPARAMS['event']['panda']['actuator_gains']['force_range'],
-            'torque_range': HPARAMS['event']['panda']['actuator_gains']['torque_range'],
+            'force_range': HPARAMS['event']['panda']['force_torque']['force_range'],
+            'torque_range': HPARAMS['event']['panda']['force_torque']['torque_range'],
         },
     )
     panda_joints_scale: EventTermCfg = EventTermCfg(
-        func=mdp.randomize_joint_parameters,
+        func=mdp.reset_joints_by_scale,
         mode='reset',
         params={
             'asset_cfg': SceneEntityCfg('panda', body_names='.*'),
-            'position_range': HPARAMS['event']['panda']['actuator_gains']['position_range'],
-            'velocity_range': HPARAMS['event']['panda']['actuator_gains']['velocity_range'],
+            'position_range': HPARAMS['event']['panda']['reset_joints']['position_range'],
+            'velocity_range': HPARAMS['event']['panda']['reset_joints']['velocity_range'],
         },
     )
     
@@ -88,8 +89,21 @@ class EventCfg:
         },
     )
     
-    ### OBJECT RANDOMIZATION ###
+    ### OBJECT & ROOM RANDOMIZATION ###
     '''
     Note:
     Use randomize_visual_color, randomize_visual_texture_material, randomize_rigid_body_material 
     '''
+    room_scale: EventTermCfg = EventTermCfg(
+        func=randomize_room_dimensions,
+        mode='reset',
+        params={
+            'asset_cfgs': map(
+                lambda prim: SceneEntityCfg(prim),
+                ['wall_x1', 'wall_x2', 'wall_y1', 'wall_y2', 'wall_z1', 'wall_z2'],
+            ),
+            'x_range': HPARAMS['scene']['room']['x_range'],
+            'y_range': HPARAMS['scene']['room']['y_range'],
+            'z_range': HPARAMS['scene']['room']['z_range'],
+        },
+    )
