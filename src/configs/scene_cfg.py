@@ -15,7 +15,21 @@ from src.utils.scene_setup import get_rects
 from src.utils.hyperparams import HPARAMS
 
 
-thickness: float = HPARAMS['scene']['wall']['wall_thickness']
+thickness: float = HPARAMS['scene']['room']['wall_thickness']
+# Default wall spawn, prior to DR
+default_spawn: sim_utils.CuboidCfg = sim_utils.CuboidCfg(
+    size=(1.0, 1.0, 1.0),
+    rigid_props=sim_utils.RigidBodyPropertiesCfg(
+        disable_gravity=True,
+        kinematic_enabled=True,
+    ),
+    mass_props=sim_utils.MassPropertiesCfg(mass=1.0),
+    collision_props=sim_utils.CollisionPropertiesCfg(),
+    visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(1.0, 1.0, 1.0)),
+    physics_material=sim_utils.RigidBodyMaterialCfg(
+        static_friction=0.8, dynamic_friction=0.6, restitution=0.1,
+    ),
+)
 
 
 @configclass
@@ -32,7 +46,7 @@ class SceneCfg(InteractiveSceneCfg):
     light: AssetBaseCfg = AssetBaseCfg(
         prim_path='{ENV_REGEX_NS}/Light',
         spawn = sim_utils.DomeLightCfg(intensity=HPARAMS['scene']['light']['intensity'],
-                                       color=HPARAMS['scene']['light']['color']),
+                                       color=tuple(HPARAMS['scene']['light']['color'])),
     )
     # Panda config
     panda: ArticulationCfg = FRANKA_PANDA_HIGH_PD_CFG.replace(
@@ -45,7 +59,6 @@ class SceneCfg(InteractiveSceneCfg):
             activate_contact_sensors=True,
         )
     )
-    
     
     # Sensors
     camera: CameraCfg = CameraCfg(
@@ -72,53 +85,28 @@ class SceneCfg(InteractiveSceneCfg):
         debug_vis=True,
     )
     
-    
-    # Room borders
-    dims = torch.rand((3,)) * (HPARAMS['scene']['wall']['wall_bounds'][1] - HPARAMS['scene']['wall']['wall_bounds'][0]) + HPARAMS['scene']['wall']['wall_bounds'][0]
-    x_bound, y_bound, z_bound = get_rects(dims)
-    
     # Generate and place prims
     wall_x1 = RigidObjectCfg(
         prim_path='{ENV_REGEX_NS}/wallx1',
-        spawn=x_bound,
-        init_state=RigidObjectCfg.InitialStateCfg(
-            pos=(-float(dims[0].item()) / 2, 0.0, float(dims[2].item()) / 2),
-        ),
+        spawn=default_spawn,
     )
     wall_x2 = RigidObjectCfg(
         prim_path='{ENV_REGEX_NS}/wallx2',
-        spawn=x_bound,
-        init_state=RigidObjectCfg.InitialStateCfg(
-            pos=(float(dims[0].item()) / 2, 0.0, float(dims[2].item()) / 2)
-        )
+        spawn=default_spawn,
     )
     wall_y1 = RigidObjectCfg(
         prim_path='{ENV_REGEX_NS}/wally1',
-        spawn=y_bound,
-        init_state=RigidObjectCfg.InitialStateCfg(
-            pos=(0.0, -float(dims[1].item()) / 2, float(dims[2].item()) / 2)
-        )
+        spawn=default_spawn,
     )
     wall_y2 = RigidObjectCfg(
         prim_path='{ENV_REGEX_NS}/wally2',
-        spawn=y_bound,
-        init_state=RigidObjectCfg.InitialStateCfg(
-            pos=(0.0, float(dims[1].item()) / 2, float(dims[2].item()) / 2)
-        )
+        spawn=default_spawn,
     )
     wall_z1 = RigidObjectCfg(
         prim_path='{ENV_REGEX_NS}/wallz1',
-        spawn=z_bound,
-        init_state=RigidObjectCfg.InitialStateCfg(
-            pos=(0.0, 0.0, 0.0)
-        )
+        spawn=default_spawn,
     )
     wall_z2 = RigidObjectCfg(
         prim_path='{ENV_REGEX_NS}/wallz2',
-        spawn=z_bound,
-        init_state=RigidObjectCfg.InitialStateCfg(
-            pos=(0.0, 0.0, float(dims[2].item()))
-        )
+        spawn=default_spawn,
     )
-    # Remove unnecessary objects prior to hashing
-    del dims, x_bound, y_bound, z_bound
