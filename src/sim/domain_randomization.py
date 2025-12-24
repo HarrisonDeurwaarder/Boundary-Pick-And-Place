@@ -12,7 +12,7 @@ from pxr import Sdf, Gf, UsdGeom, Vt
 import torch
 from typing import Sequence
 
-from utils.config import load_config
+from src.utils.config import load_config
 
 
 CONFIG = load_config('panda_train')

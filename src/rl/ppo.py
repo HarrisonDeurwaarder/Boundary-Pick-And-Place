@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from utils.config import load_config
+from src.utils.config import load_config
 
 
 CONFIG = load_config('panda_train')

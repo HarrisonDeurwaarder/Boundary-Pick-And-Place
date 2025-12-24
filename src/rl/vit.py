@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.distributions as dist
 
-from utils.config import load_config
+from src.utils.config import load_config
 
 
 CONFIG = load_config('panda_train')

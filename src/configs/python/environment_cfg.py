@@ -2,9 +2,9 @@ from isaaclab.envs import DirectRLEnvCfg
 from isaaclab.utils import configclass
 from isaaclab.sim import SimulationCfg
 
-from utils.config import load_config
-from configs.python.scene_cfg import SceneCfg
-from configs.python.event_cfg import EventCfg
+from src.utils.config import load_config
+from src.configs.python.scene_cfg import SceneCfg
+from src.configs.python.event_cfg import EventCfg
 
 
 CONFIG = load_config('panda_train')

@@ -16,7 +16,7 @@ from isaaclab.sim import SimulationContext, SimulationCfg
 
 from src.sim.osc import update_states, get_osc, update_target, convert_to_task_frame
 from src.utils.logger import logging
-from configs.python.scene_cfg import SceneCfg
+from src.configs.python.scene_cfg import SceneCfg
 
 
 def run_sim(
@@ -187,7 +187,7 @@ def main() -> None:
     sim: sim_utils.SimulationContext = sim_utils.SimulationContext(sim_cfg,)
     # Design the scene and reset it
     scene_cfg: SceneCfg = SceneCfg(
-        num_envs=9,
+        num_envs=1,
         env_spacing=20.0
     )
     scene: InteractiveScene = InteractiveScene(scene_cfg,)

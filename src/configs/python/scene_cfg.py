@@ -11,8 +11,7 @@ from isaaclab.utils import configclass
 from isaaclab_assets import FRANKA_PANDA_HIGH_PD_CFG
 
 import torch
-from src.utils.scene_setup import get_rects
-from utils.config import load_config
+from src.utils.config import load_config
 
 
 CONFIG = load_config('panda_train')

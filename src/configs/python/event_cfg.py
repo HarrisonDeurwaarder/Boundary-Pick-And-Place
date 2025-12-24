@@ -5,7 +5,7 @@ from isaaclab.managers import EventTermCfg
 from isaaclab.envs import mdp
 from isaaclab.managers import SceneEntityCfg
 
-from utils.config import load_config
+from src.utils.config import load_config
 from src.sim.domain_randomization import randomize_room_dimensions
 
 
