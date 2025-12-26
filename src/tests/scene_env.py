@@ -42,21 +42,21 @@ def run_sim(
     '''
     scene: InteractiveScene = env.scene
     # Get indices for joints
-    ee_frame_name = 'panda_leftfinger'
-    arm_joint_names = ['panda_link.*']
-    ee_frame_idx: int = scene['panda'].find_bodies(ee_frame_name)[0][0]
-    arm_joint_ids: np.ndarray = scene['panda'].find_bodies(arm_joint_names)[0]
+    ee_frame_name = 'robot_leftfinger'
+    arm_joint_names = ['robot_link.*']
+    ee_frame_idx: int = scene['robot'].find_bodies(ee_frame_name)[0][0]
+    arm_joint_ids: np.ndarray = scene['robot'].find_bodies(arm_joint_names)[0]
     
     # Define the OSC
     osc: OperationalSpaceController = get_osc(sim, scene,)
     
     sim_dt: float = sim.get_physics_dt()
     contact_forces: ContactSensorCfg = scene['contact_forces']
-    panda: Articulation = scene['panda']
-    panda.update(dt=sim_dt)
+    robot: Articulation = scene['robot']
+    robot.update(dt=sim_dt)
     
-    # Center of panda's joint ranges
-    joint_centers: torch.Tensor = torch.mean(panda.data.soft_joint_pos_limits[:, arm_joint_ids, :], dim=-1)
+    # Center of robot's joint ranges
+    joint_centers: torch.Tensor = torch.mean(robot.data.soft_joint_pos_limits[:, arm_joint_ids, :], dim=-1)
     
     # Get updated states
     (
@@ -71,7 +71,7 @@ def run_sim(
     ) = update_states(
         sim=sim,
         scene=scene,
-        panda=panda,
+        robot=robot,
         ee_frame_idx=ee_frame_idx,
         arm_joint_ids=arm_joint_ids,
         contact_forces=contact_forces,
@@ -108,7 +108,7 @@ def run_sim(
         ) = update_states(
             sim=sim,
             scene=scene,
-            panda=panda,
+            robot=robot,
             ee_frame_idx=ee_frame_idx,
             arm_joint_ids=arm_joint_ids,
             contact_forces=contact_forces,
@@ -143,7 +143,7 @@ def run_sim(
             _, _, _, ee_pose_b, _, _, _, _ = update_states(
                 sim=sim,
                 scene=scene,
-                panda=panda,
+                robot=robot,
                 ee_frame_idx=ee_frame_idx,
                 arm_joint_ids=arm_joint_ids,
                 contact_forces=contact_forces,

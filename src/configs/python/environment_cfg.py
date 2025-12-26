@@ -7,7 +7,7 @@ from src.configs.python.scene_cfg import SceneCfg
 from src.configs.python.event_cfg import EventCfg
 
 
-CONFIG = load_config('panda_train')
+CONFIG = load_config('train')
 
 
 @configclass

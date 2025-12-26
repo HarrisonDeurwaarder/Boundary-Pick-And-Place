@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from src.utils.config import load_config
 
 
-CONFIG = load_config('panda_train')
+CONFIG = load_config('train')
 
 
 class Actor(nn.Module):
@@ -34,7 +34,7 @@ class Actor(nn.Module):
         Pass a state through the policy for an action
         
         Args:
-            state (Tensor): Location/velocity data of the panda along with boundary vector
+            state (Tensor): Location/velocity data of the robot along with boundary vector
             
         Returns:
             Tensor: OSC-required inputs
@@ -146,7 +146,7 @@ class Critic(nn.Module):
         Pass a state through the policy for an action
         
         Args:
-            state (Tensor): Location/velocity data of the panda along with boundary vector
+            state (Tensor): Location/velocity data of the robot along with boundary vector
             
         Returns:
             Tensor: OSC-required inputs

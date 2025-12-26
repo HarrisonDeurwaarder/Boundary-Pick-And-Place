@@ -49,7 +49,7 @@ def get_osc(
 def update_states(
     sim: sim_utils.SimulationContext,
     scene: InteractiveScene,
-    panda: Articulation,
+    robot: Articulation,
     ee_frame_idx: int,
     arm_joint_ids: list[int],
     contact_forces: ContactSensor,
@@ -61,7 +61,7 @@ def update_states(
     Args:
         sim (SimulationContext): The simulation context
         scene (InteractiveScene): The interactive scene
-        panda (Articulation): The panda articulation
+        robot (Articulation): The robot articulation
         ee_frame_idx (int): The end-effector frame index
         arm_joint_ids (list[int]): The arm joint indices
         contact_forces (ContactSensor): The contact sensor
@@ -80,21 +80,21 @@ def update_states(
     # Align frame indices with 0-start indexing
     ee_jacobi_idx: int = ee_frame_idx - 1
     # Obtain dynamics related quantities from the sim
-    jacobian_w: torch.Tensor  = panda.root_physx_view.get_jacobians()[:, ee_jacobi_idx, :, arm_joint_ids]
-    mass_mat: torch.Tensor = panda.root_physx_view.get_generalized_mass_matrices()[:, arm_joint_ids, :][:, :, arm_joint_ids]
-    gravity: torch.Tensor = panda.root_physx_view.get_gravity_compensation_forces()[:, arm_joint_ids]
+    jacobian_w: torch.Tensor  = robot.root_physx_view.get_jacobians()[:, ee_jacobi_idx, :, arm_joint_ids]
+    mass_mat: torch.Tensor = robot.root_physx_view.get_generalized_mass_matrices()[:, arm_joint_ids, :][:, :, arm_joint_ids]
+    gravity: torch.Tensor = robot.root_physx_view.get_gravity_compensation_forces()[:, arm_joint_ids]
     
     # Convert the Jacobian from world to root frame
     jacobian_b: torch.Tensor = jacobian_w.clone()
-    root_rot_matrix: torch.Tensor = matrix_from_quat(quat_inv(panda.data.root_quat_w))
+    root_rot_matrix: torch.Tensor = matrix_from_quat(quat_inv(robot.data.root_quat_w))
     jacobian_b[:, :3, :] = torch.bmm(root_rot_matrix, jacobian_b[:, :3, :])
     jacobian_b[:, 3:, :] = torch.bmm(root_rot_matrix, jacobian_b[:, 3:, :])
     
     # Compute current pose of the end_effector
-    root_pos_w: torch.Tensor = panda.data.root_pos_w
-    root_quat_w: torch.Tensor = panda.data.root_quat_w
-    ee_pos_w: torch.Tensor = panda.data.body_pos_w[:, ee_frame_idx]
-    ee_quat_w: torch.Tensor = panda.data.body_quat_w[:, ee_frame_idx]
+    root_pos_w: torch.Tensor = robot.data.root_pos_w
+    root_quat_w: torch.Tensor = robot.data.root_quat_w
+    ee_pos_w: torch.Tensor = robot.data.body_pos_w[:, ee_frame_idx]
+    ee_quat_w: torch.Tensor = robot.data.body_quat_w[:, ee_frame_idx]
     ee_pos_b, ee_quat_b = subtract_frame_transforms(
         root_pos_w,
         root_quat_w,
@@ -107,13 +107,13 @@ def update_states(
     )
     
     # Extract EE/root vel in world frame
-    ee_vel_w: torch.Tensor = panda.data.body_vel_w[:, ee_frame_idx, :]
-    root_vel_w: torch.Tensor = panda.data.root_vel_w
+    ee_vel_w: torch.Tensor = robot.data.body_vel_w[:, ee_frame_idx, :]
+    root_vel_w: torch.Tensor = robot.data.root_vel_w
     
     # Compute relative vel in world frame
     relative_vel_w: torch.Tensor = ee_vel_w - root_vel_w
-    ee_lin_vel_b: torch.Tensor = quat_apply_inverse(panda.data.root_quat_w, relative_vel_w[:, :3])
-    ee_ang_vel_b: torch.Tensor = quat_apply_inverse(panda.data.root_quat_w, relative_vel_w[:, 3:])
+    ee_lin_vel_b: torch.Tensor = quat_apply_inverse(robot.data.root_quat_w, relative_vel_w[:, :3])
+    ee_ang_vel_b: torch.Tensor = quat_apply_inverse(robot.data.root_quat_w, relative_vel_w[:, 3:])
     ee_vel_b: torch.Tensor = torch.cat(
         [ee_lin_vel_b, ee_ang_vel_b],
         dim=-1,
@@ -130,8 +130,8 @@ def update_states(
     ee_force_b = ee_force_w
     
     # Get joint positions and velocities
-    joint_pos: torch.Tensor = panda.data.joint_pos[:, arm_joint_ids]
-    joint_vel: torch.Tensor = panda.data.joint_vel[:, arm_joint_ids]
+    joint_pos: torch.Tensor = robot.data.joint_pos[:, arm_joint_ids]
+    joint_vel: torch.Tensor = robot.data.joint_vel[:, arm_joint_ids]
     
     return (
         jacobian_b,

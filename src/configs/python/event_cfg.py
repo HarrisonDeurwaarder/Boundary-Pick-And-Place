@@ -9,7 +9,7 @@ from src.utils.config import load_config
 from src.sim.domain_randomization import randomize_room_dimensions
 
 
-CONFIG = load_config('panda_train')
+CONFIG = load_config('train')
 
 
 @configclass
@@ -18,66 +18,66 @@ class EventCfg:
     Event config. Handles most domain randomization
     '''
     
-    ### PANDA RANDOMIZATION ###
-    panda_phys_material: EventTermCfg = EventTermCfg(
+    ### ROBOT RANDOMIZATION ###
+    robot_phys_material: EventTermCfg = EventTermCfg(
         func = mdp.randomize_rigid_body_material,
         mode='reset',
         params={
-            'asset_cfg': SceneEntityCfg('panda', body_names='.*'),
-            'static_friction_range': CONFIG['event']['panda']['material']['static_friction_range'],
-            'dynamic_friction_range': CONFIG['event']['panda']['material']['dynamic_friction_range'],
-            'restitution_range': CONFIG['event']['panda']['material']['restitution_range'],
-            'num_buckets': CONFIG['event']['panda']['material']['num_buckets'],
+            'asset_cfg': SceneEntityCfg('robot', body_names='.*'),
+            'static_friction_range': CONFIG['event']['robot']['material']['static_friction_range'],
+            'dynamic_friction_range': CONFIG['event']['robot']['material']['dynamic_friction_range'],
+            'restitution_range': CONFIG['event']['robot']['material']['restitution_range'],
+            'num_buckets': CONFIG['event']['robot']['material']['num_buckets'],
         },
     )
-    panda_stiffness_damping: EventTermCfg = EventTermCfg(
+    robot_stiffness_damping: EventTermCfg = EventTermCfg(
         func=mdp.randomize_actuator_gains,
         mode='reset',
         params={
-            'asset_cfg': SceneEntityCfg('panda', body_names='.*'),
-            'stiffness_distribution_params': CONFIG['event']['panda']['actuator_gains']['stiffness_distribution_params'],
-            'damping_distribution_params': CONFIG['event']['panda']['actuator_gains']['damping_distribution_params'],
+            'asset_cfg': SceneEntityCfg('robot', body_names='.*'),
+            'stiffness_distribution_params': CONFIG['event']['robot']['actuator_gains']['stiffness_distribution_params'],
+            'damping_distribution_params': CONFIG['event']['robot']['actuator_gains']['damping_distribution_params'],
             'operation': 'scale',
             'distribution': 'log_uniform',
         },
     )
-    panda_mass: EventTermCfg = EventTermCfg(
+    robot_mass: EventTermCfg = EventTermCfg(
         func=mdp.randomize_rigid_body_mass,
         mode='reset',
         params={
-            'asset_cfg': SceneEntityCfg('panda', body_names='.*'),
-            'mass_distribution_params': CONFIG['event']['panda']['mass']['mass_distribution_params'],
+            'asset_cfg': SceneEntityCfg('robot', body_names='.*'),
+            'mass_distribution_params': CONFIG['event']['robot']['mass']['mass_distribution_params'],
             'operation': 'scale',
             'distribution': 'log_uniform',
         },
     )
-    panda_joint_params: EventTermCfg = EventTermCfg(
+    robot_joint_params: EventTermCfg = EventTermCfg(
         func=mdp.randomize_joint_parameters,
         mode='reset',
         params={
-            'asset_cfg': SceneEntityCfg('panda', body_names='.*'),
-            'friction_distribution_params': CONFIG['event']['panda']['joint_params']['friction_distribution_params'],
-            'armature_distribution_params': CONFIG['event']['panda']['joint_params']['armature_distribution_params'],
+            'asset_cfg': SceneEntityCfg('robot', body_names='.*'),
+            'friction_distribution_params': CONFIG['event']['robot']['joint_params']['friction_distribution_params'],
+            'armature_distribution_params': CONFIG['event']['robot']['joint_params']['armature_distribution_params'],
             'operation': 'scale',
             'distribution': 'log_uniform',
         },
     )
-    panda_ext_force_torque: EventTermCfg = EventTermCfg(
+    robot_ext_force_torque: EventTermCfg = EventTermCfg(
         func=mdp.apply_external_force_torque,
         mode='reset',
         params={
-            'asset_cfg': SceneEntityCfg('panda', body_names='.*'),
-            'force_range': CONFIG['event']['panda']['force_torque']['force_range'],
-            'torque_range': CONFIG['event']['panda']['force_torque']['torque_range'],
+            'asset_cfg': SceneEntityCfg('robot', body_names='.*'),
+            'force_range': CONFIG['event']['robot']['force_torque']['force_range'],
+            'torque_range': CONFIG['event']['robot']['force_torque']['torque_range'],
         },
     )
-    panda_joints_scale: EventTermCfg = EventTermCfg(
+    robot_joints_scale: EventTermCfg = EventTermCfg(
         func=mdp.reset_joints_by_scale,
         mode='reset',
         params={
-            'asset_cfg': SceneEntityCfg('panda', body_names='.*'),
-            'position_range': CONFIG['event']['panda']['reset_joints']['position_range'],
-            'velocity_range': CONFIG['event']['panda']['reset_joints']['velocity_range'],
+            'asset_cfg': SceneEntityCfg('robot', body_names='.*'),
+            'position_range': CONFIG['event']['robot']['reset_joints']['position_range'],
+            'velocity_range': CONFIG['event']['robot']['reset_joints']['velocity_range'],
         },
     )
     

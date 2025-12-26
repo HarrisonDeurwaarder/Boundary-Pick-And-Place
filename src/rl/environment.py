@@ -23,11 +23,11 @@ class Env(DirectRLEnv):
         **kwargs,
     ) -> None:
         super().__init__(env_cfg, render_mode, **kwargs)
-        # Extract panda from scene
-        self.panda = self.scene['panda']
-        # Extract panda joint IDs
-        arm_joint_names = ['panda_link.*']
-        self.arm_joint_ids: np.ndarray = self.panda.find_bodies(arm_joint_names)[0]
+        # Extract robot from scene
+        self.robot = self.scene['robot']
+        # Extract robot joint IDs
+        arm_joint_names = ['robot_link.*']
+        self.arm_joint_ids: np.ndarray = self.robot.find_bodies(arm_joint_names)[0]
     
     
     def _step_impl(
@@ -37,8 +37,8 @@ class Env(DirectRLEnv):
         obs, rewards, terminated, truncated, info = super()._step_impl(actions)
         # Perform interval-based domain randomization
         self.event_manager.step(self.physics_dt)
-        # Update panda buffers
-        self.panda.update(self.physics_dt)
+        # Update robot buffers
+        self.robot.update(self.physics_dt)
         return obs, rewards, terminated, truncated, info
     
     
@@ -50,7 +50,7 @@ class Env(DirectRLEnv):
         
     
     def _apply_action(self,) -> None:
-        self.panda.set_joint_effort_target(
+        self.robot.set_joint_effort_target(
                 self.actions, 
                 joint_ids=self.arm_joint_ids,
             )
@@ -59,8 +59,8 @@ class Env(DirectRLEnv):
     def _get_observations(self,) -> dict[str, torch.Tensor]:
         observations: torch.Tensor = torch.cat(
             (
-                self.panda.data.joint_pos[:, self.arm_joint_ids].unsqueeze(dim=1,),
-                self.panda.data.joint_vel[:, self.arm_joint_ids].unsqueeze(dim=1,),
+                self.robot.data.joint_pos[:, self.arm_joint_ids].unsqueeze(dim=1,),
+                self.robot.data.joint_vel[:, self.arm_joint_ids].unsqueeze(dim=1,),
             ),
             dim=-1,
         )
@@ -75,7 +75,7 @@ class Env(DirectRLEnv):
             self.cfg.rew_scale_distance,
             self.cfg.rew_scale_drop,
             self.cfg.rew_scale_contact,
-            self.panda,
+            self.robot,
             self.reset_terminated
         )'''
         reward: torch.Tensor = torch.zeros((self.num_envs))
@@ -95,7 +95,7 @@ class Env(DirectRLEnv):
         self.sim.pause()
         # Default is all environments
         if env_ids is None:
-            env_ids = self.panda._ALL_INDICES
+            env_ids = self.robot._ALL_INDICES
         super()._reset_idx(env_ids)
         # Randomize domains set to mode "reset"
         self.event_manager.reset(env_ids)

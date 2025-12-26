@@ -14,7 +14,7 @@ import torch
 from src.utils.config import load_config
 
 
-CONFIG = load_config('panda_train')
+CONFIG = load_config('train')
 
 
 thickness: float = CONFIG['scene']['room']['wall_thickness']
@@ -50,9 +50,9 @@ class SceneCfg(InteractiveSceneCfg):
         spawn = sim_utils.DomeLightCfg(intensity=CONFIG['scene']['light']['intensity'],
                                        color=tuple(CONFIG['scene']['light']['color'])),
     )
-    # Panda config
-    panda: ArticulationCfg = FRANKA_PANDA_HIGH_PD_CFG.replace(
-        prim_path='{ENV_REGEX_NS}/Panda',
+    # Robot config
+    robot: ArticulationCfg = FRANKA_PANDA_HIGH_PD_CFG.replace(
+        prim_path='{ENV_REGEX_NS}/Robot',
         init_state=FRANKA_PANDA_HIGH_PD_CFG.init_state.replace(
             pos=(0.0, 0.0, thickness),
         ),
@@ -64,16 +64,16 @@ class SceneCfg(InteractiveSceneCfg):
     
     # Sensors
     camera: CameraCfg = CameraCfg(
-        prim_path='{ENV_REGEX_NS}/Panda/base/camera',
+        prim_path='{ENV_REGEX_NS}/Robot/base/camera',
         update_period=0.1,
         height=CONFIG['scene']['sensor']['camera']['camera_height'],
         width=CONFIG['scene']['sensor']['camera']['camera_width'],
         data_types=['rgb', 'distance_to_image_plane'],
         spawn=sim_utils.PinholeCameraCfg(
-            focal_length=24.0,
-            focus_distance=400.0,
-            horizontal_aperture=20.955,
-            clipping_range=(0.1, 1.0e5),
+            focal_length=CONFIG['scene']['sensor']['camera']['focal_length'],
+            focus_distance=CONFIG['scene']['sensor']['camera']['focus_distance'],
+            horizontal_aperture=CONFIG['scene']['sensor']['camera']['horizontal_aperture'],
+            clipping_range=CONFIG['scene']['sensor']['camera']['clipping_range'],
         ),
         offset=CameraCfg.OffsetCfg(
             convention='ros'
@@ -81,7 +81,7 @@ class SceneCfg(InteractiveSceneCfg):
     )
     
     contact_forces: ContactSensorCfg = ContactSensorCfg(
-        prim_path='{ENV_REGEX_NS}/Panda/panda_hand',
+        prim_path='{ENV_REGEX_NS}/Robot/robot_hand',
         update_period=0.0,
         history_length=CONFIG['scene']['sensor']['force_history_length'],
         debug_vis=True,

@@ -21,7 +21,7 @@ def launch_app(
         
     '''
     # Define the argument parser
-    parser: argparse.ArgumentParser = argparse.ArgumentParser(description='Pick-and-place Franka Panda using boundary points')
+    parser: argparse.ArgumentParser = argparse.ArgumentParser(description='Pick-and-place Franka Robot using boundary points')
     for arg in runtime_args:
         parser.add_argument(
             arg['flag'],

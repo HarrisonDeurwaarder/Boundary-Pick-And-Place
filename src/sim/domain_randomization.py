@@ -15,7 +15,7 @@ from typing import Sequence
 from src.utils.config import load_config
 
 
-CONFIG = load_config('panda_train')
+CONFIG = load_config('train')
 thickness: float = CONFIG['scene']['room']['wall_thickness']
 
 

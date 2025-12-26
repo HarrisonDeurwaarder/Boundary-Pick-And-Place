@@ -16,7 +16,7 @@ class Rollout(Dataset):
     ) -> None:
         '''
         Args:
-            states (list[Tensor]): Panda joint orientation/velocity, depth-processed images
+            states (list[Tensor]): Robot joint orientation/velocity, depth-processed images
             actions (list[Tensor]): Sampled end-effector position
             rewards (list[float]): Timestep rewards
             distributions (list[Normal]): Distributions output by the policy; actions are sampled here

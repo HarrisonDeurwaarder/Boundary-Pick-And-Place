@@ -6,7 +6,7 @@ import torch.distributions as dist
 from src.utils.config import load_config
 
 
-CONFIG = load_config('panda_train')
+CONFIG = load_config('train')
 
 
 class Encoder(nn.Module):
