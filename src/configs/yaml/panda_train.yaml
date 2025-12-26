@@ -23,8 +23,13 @@ scene:
     intensity: 3000
     color: [0.75, 0.75, 0.75]
   sensor:
-    camera_height: 480 # [pixels]
-    camera_width: 640 # [pixels]
+    camera:
+      camera_height: 480 # [pixels]
+      camera_width: 640 # [pixels]
+      focal_length: 24.0
+      focus_distance: 400.0
+      horizontal_aperture: 20.955
+      clipping_range: [0.1, 1.0e5]
     force_history_length: 5
 
 rl:
@@ -33,7 +38,7 @@ rl:
     gae_decay: 0.98
     entropy_coefficient: 0.01
   vit:
-    image_size: [1028, 1028] # [pixels]
+    image_size: [480, 640] # [pixels]
     patch_size: 16 # [pixels]
     encoder:
       n_head: 8

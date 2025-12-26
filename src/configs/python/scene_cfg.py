@@ -64,10 +64,10 @@ class SceneCfg(InteractiveSceneCfg):
     
     # Sensors
     camera: CameraCfg = CameraCfg(
-        prim_path='{ENV_REGEX_NS}/Panda/panda_hand/camera',
+        prim_path='{ENV_REGEX_NS}/Panda/base/camera',
         update_period=0.1,
-        height=CONFIG['scene']['sensor']['camera_height'],
-        width=CONFIG['scene']['sensor']['camera_width'],
+        height=CONFIG['scene']['sensor']['camera']['camera_height'],
+        width=CONFIG['scene']['sensor']['camera']['camera_width'],
         data_types=['rgb', 'distance_to_image_plane'],
         spawn=sim_utils.PinholeCameraCfg(
             focal_length=24.0,
