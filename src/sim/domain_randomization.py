@@ -144,7 +144,7 @@ def randomize_room_dimensions(
                 ),
                 'wally2': (
                     0.0, 
-                    sizes[env_id, 0].item() / 2.0, 
+                    sizes[env_id, 1].item() / 2.0, 
                     sizes[env_id, 2].item() / 2.0,
                 ),
                 'wallz1': (
