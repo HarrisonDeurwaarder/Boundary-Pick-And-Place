@@ -8,7 +8,7 @@ env:
   state_space: 0
 
 scene:
-  num_envs: 9
+  num_envs: 2
   env_spacing: 10.0
   replicate_physics: True
   clone_in_fabric: True

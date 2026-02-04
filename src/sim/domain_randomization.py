@@ -12,11 +12,10 @@ from pxr import Sdf, Gf, UsdGeom, Vt
 import torch
 from typing import Sequence
 
-from src.utils.config import load_config
+import src.utils.config as config
 
 
-CONFIG = load_config('train')
-thickness: float = CONFIG['scene']['room']['wall_thickness']
+thickness: float = config.config['scene']['room']['wall_thickness']
 
 
 def randomize_room_dimensions(

@@ -1,8 +1,10 @@
 import torch
 
-from sim.launch_app import launch_app
+from src.sim.launch_app import launch_app
 
-sim_app, args_cli = launch_app()
+sim_app, args_cli = launch_app(
+    enable_cameras=True,
+)
     
 from src.configs.python.scene_cfg import SceneCfg
 from src.utils.logger import logging

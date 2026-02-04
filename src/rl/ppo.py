@@ -2,10 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from src.utils.config import load_config
-
-
-CONFIG = load_config('train')
+import src.utils.config as config
 
 
 class Actor(nn.Module):
@@ -69,11 +66,11 @@ class Actor(nn.Module):
             Tensor: Low variance/low bias advantage estimations
         '''
         # Pre-compute the TD residuals
-        td_residuals: torch.Tensor = rewards + critic_out[1:] * CONFIG['rl']['ppo']['discount_factor'] - critic_out[:-1]
+        td_residuals: torch.Tensor = rewards + critic_out[1:] * config.config['rl']['ppo']['discount_factor'] - critic_out[:-1]
         # Iteratively compute GAE
         advantages: torch.Tensor = torch.zeros_like(rewards)
         for t in reversed(td_residuals.size(-1) - 1):
-            advantages[t] = td_residuals[..., t] + CONFIG['rl']['ppo']['discount_factor'] * CONFIG['rl']['ppo']['gae_decay'] * (1 - dones[..., t+1]) * advantages[..., t+1]
+            advantages[t] = td_residuals[..., t] + config.config['rl']['ppo']['discount_factor'] * config.config['rl']['ppo']['gae_decay'] * (1 - dones[..., t+1]) * advantages[..., t+1]
         
         return advantages
         
@@ -115,7 +112,7 @@ class Actor(nn.Module):
         entropy: torch.Tensor = policy_dist.entropy()
         
         return -torch.mean(
-            clipped_surrogate_obj + CONFIG['rl']['ppo']['entropy_coefficient'] * entropy,
+            clipped_surrogate_obj + config.config['rl']['ppo']['entropy_coefficient'] * entropy,
             dim=-1,
         )
     

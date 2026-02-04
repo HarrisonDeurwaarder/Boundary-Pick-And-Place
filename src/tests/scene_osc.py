@@ -3,9 +3,12 @@ import torch
 from torch.distributions import Uniform
 
 from src.sim.launch_app import launch_app
+from src.utils.config import load_config
 
 # Define and launch the app
 sim_app, args_cli = launch_app(enable_cameras=True)
+
+load_config('train')
 
 import isaaclab.sim as sim_utils
 from isaaclab.controllers import OperationalSpaceController
@@ -37,13 +40,13 @@ def run_sim(
         kp_dist (torch.distributions.Uniform): The uniform distribution to randomly sample target stiffness
     '''
     # Get indices for joints
-    ee_frame_name = 'robot_leftfinger'
-    arm_joint_names = ['robot_link.*']
+    ee_frame_name = 'panda_leftfinger'
+    arm_joint_names = ['panda_link.*']
     ee_frame_idx: int = scene['robot'].find_bodies(ee_frame_name)[0][0]
     arm_joint_ids: np.ndarray = scene['robot'].find_bodies(arm_joint_names)[0]
     
     # Define the OSC
-    osc: OperationalSpaceController = get_osc(sim, scene,)
+    osc: OperationalSpaceController = get_osc(scene.num_envs, scene.device,)
     
     sim_dt: float = sim.get_physics_dt()
     contact_forces: ContactSensorCfg = scene['contact_forces']
@@ -64,9 +67,9 @@ def run_sim(
         joint_pos,
         joint_vel,
     ) = update_states(
-        sim=sim,
-        scene=scene,
         robot=robot,
+        sim_dt=sim.get_physics_dt(),
+        num_envs=scene.num_envs,
         ee_frame_idx=ee_frame_idx,
         arm_joint_ids=arm_joint_ids,
         contact_forces=contact_forces,
@@ -97,9 +100,9 @@ def run_sim(
             # Reset target pose
             robot.update(sim_dt)
             _, _, _, ee_pose_b, _, _, _, _ = update_states(
-                sim=sim,
-                scene=scene,
                 robot=robot,
+                sim_dt=sim.get_physics_dt(),
+                num_envs=scene.num_envs,
                 ee_frame_idx=ee_frame_idx,
                 arm_joint_ids=arm_joint_ids,
                 contact_forces=contact_forces,
@@ -114,9 +117,9 @@ def run_sim(
             
             # Updates the command and specialized position/quaternion orientation target
             command, ee_target_pose_b = update_target(
-                    sim,
-                    scene,
                     osc,
+                    scene.num_envs,
+                    scene.device,
                     ee_targets,
                 )
             # Set the OSC command
@@ -143,9 +146,9 @@ def run_sim(
                 joint_pos,
                 joint_vel
             ) = update_states(
-                sim=sim,
-                scene=scene,
                 robot=robot,
+                sim_dt=sim.get_physics_dt(),
+                num_envs=scene.num_envs,
                 ee_frame_idx=ee_frame_idx,
                 arm_joint_ids=arm_joint_ids,
                 contact_forces=contact_forces,
@@ -187,10 +190,13 @@ def main() -> None:
     sim: sim_utils.SimulationContext = sim_utils.SimulationContext(sim_cfg,)
     # Design the scene and reset it
     scene_cfg: SceneCfg = SceneCfg(
-        num_envs=1,
+        num_envs=2,
         env_spacing=20.0
     )
     scene: InteractiveScene = InteractiveScene(scene_cfg,)
+    
+    
+    
     sim.reset()
     # Log the completed setup
     logging.info('Setup complete.')

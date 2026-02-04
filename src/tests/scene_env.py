@@ -1,13 +1,15 @@
-import numpy as np
 import torch
 from torch.distributions import Uniform
 
 from src.sim.launch_app import launch_app
+from src.utils.config import load_config
 
 # Define and launch the app
 sim_app, args_cli = launch_app(
     enable_cameras=True,
 )
+
+load_config('train')
 
 import isaaclab.sim as sim_utils
 from isaaclab.controllers import OperationalSpaceController
@@ -15,6 +17,9 @@ from isaaclab.scene import InteractiveScene
 from isaaclab.assets import Articulation
 from isaaclab.sensors import CameraCfg, ContactSensorCfg
 from isaaclab.sim import SimulationContext, SimulationCfg
+
+from isaaclab_assets import FRANKA_PANDA_HIGH_PD_CFG
+import isaacsim.core.utils.stage as stage_utils
 
 from src.sim.osc import update_states, get_osc, update_target, convert_to_task_frame
 from src.utils.logger import logging
@@ -41,92 +46,26 @@ def run_sim(
         kp_dist (torch.distributions.Uniform): The uniform distribution to randomly sample target stiffness
     '''
     scene: InteractiveScene = env.scene
-    # Get indices for joints
-    ee_frame_name = 'robot_leftfinger'
-    arm_joint_names = ['robot_link.*']
-    ee_frame_idx: int = scene['robot'].find_bodies(ee_frame_name)[0][0]
-    arm_joint_ids: np.ndarray = scene['robot'].find_bodies(arm_joint_names)[0]
-    
-    # Define the OSC
-    osc: OperationalSpaceController = get_osc(sim, scene,)
     
     sim_dt: float = sim.get_physics_dt()
-    contact_forces: ContactSensorCfg = scene['contact_forces']
     robot: Articulation = scene['robot']
     robot.update(dt=sim_dt)
     
-    # Center of robot's joint ranges
-    joint_centers: torch.Tensor = torch.mean(robot.data.soft_joint_pos_limits[:, arm_joint_ids, :], dim=-1)
-    
-    # Get updated states
-    (
-        jacobian_b,
-        mass_mat,
-        gravity,
-        ee_pose_b,
-        ee_vel_b,
-        ee_force_b,
-        joint_pos,
-        joint_vel,
-    ) = update_states(
-        sim=sim,
-        scene=scene,
-        robot=robot,
-        ee_frame_idx=ee_frame_idx,
-        arm_joint_ids=arm_joint_ids,
-        contact_forces=contact_forces,
-    )
-    
-    command: torch.Tensor = torch.zeros(scene.num_envs, osc.action_dim, device=sim.device)
-    # Generic target command, which can be pose, position, force, etc.
-    ee_target_pose_b: torch.Tensor = torch.zeros(scene.num_envs, 7, device=sim.device)
-    
-    osc.set_command(
-        command=command,
-        current_ee_pose_b=ee_pose_b,
-        current_task_frame_pose_b=ee_pose_b,
-    )
-    
     # Initial environment reset
     env.reset()
-    
-    # The joint efforts touched by the OSC
-    joint_efforts: torch.Tensor = torch.zeros(scene.num_envs, len(arm_joint_ids), device=sim.device)
 
     ''' Simulation Loop '''
     count: int = 0
     while sim_app.is_running():
-        (
-            jacobian_b,
-            mass_mat,
-            gravity,
-            ee_pose_b, 
-            ee_vel_b,
-            ee_force_b,
-            joint_pos,
-            joint_vel
-        ) = update_states(
-            sim=sim,
-            scene=scene,
-            robot=robot,
-            ee_frame_idx=ee_frame_idx,
-            arm_joint_ids=arm_joint_ids,
-            contact_forces=contact_forces,
-        )
-        # Get joint commands
-        joint_efforts: torch.Tensor = osc.compute(
-            jacobian_b=jacobian_b,
-            current_ee_pose_b=ee_pose_b,
-            current_ee_vel_b=ee_vel_b,
-            current_ee_force_b=ee_force_b,
-            mass_matrix=mass_mat,
-            gravity=gravity,
-            current_joint_pos=joint_pos,
-            current_joint_vel=joint_vel,
-            nullspace_joint_pos_target=joint_centers,
-        )
-        # Apply environment step
-        _, _, term, trunc, _ = env.step(joint_efforts)
+        
+        # Sample the action
+        ee_pose_task: torch.Tensor = pose_dist.sample((7,)).to(sim.device)
+        ee_wrench_task: torch.Tensor = wrench_dist.sample((6,)).to(sim.device)
+        kp_task: torch.Tensor = kp_dist.sample((6,)).to(sim.device)
+        
+        ee_targets: torch.Tensor = torch.cat([ee_pose_task, ee_wrench_task, kp_task])
+        # Environment takes an ee target, each decimation a substep is then taken
+        _, _, term, trunc, _ = env.step(ee_targets)
         
         # Perform step
         sim.step(render=True)
@@ -139,42 +78,7 @@ def run_sim(
         if torch.any(term) or torch.any(trunc):
             # Call reset
             env.reset()
-            # Update initial states
-            _, _, _, ee_pose_b, _, _, _, _ = update_states(
-                sim=sim,
-                scene=scene,
-                robot=robot,
-                ee_frame_idx=ee_frame_idx,
-                arm_joint_ids=arm_joint_ids,
-                contact_forces=contact_forces,
-            )
             
-            # Sample the action
-            ee_pose_task: torch.Tensor = pose_dist.sample((7,)).to(sim.device)
-            ee_wrench_task: torch.Tensor = wrench_dist.sample((6,)).to(sim.device)
-            kp_task: torch.Tensor = kp_dist.sample((6,)).to(sim.device)
-            
-            ee_targets: torch.Tensor = torch.cat([ee_pose_task, ee_wrench_task, kp_task])
-            
-            # Updates the command and specialized position/quaternion orientation target
-            command, ee_target_pose_b = update_target(
-                    sim,
-                    scene,
-                    osc,
-                    ee_targets,
-                )
-            # Set the OSC command
-            osc.reset()
-            command, task_frame_pose_b = convert_to_task_frame(
-                osc,
-                command,
-                ee_target_pose_b,
-            )
-            osc.set_command(
-                command=command,
-                current_ee_pose_b=ee_pose_b,
-                current_task_frame_pose_b=task_frame_pose_b,
-            )
             logging.info('Environment reset.')
 
         
@@ -183,6 +87,7 @@ def main() -> None:
     '''
     Main function to run the scene with OSC-calculated commands
     '''
+    
     # Create the environment
     env_cfg: EnvCfg = EnvCfg()
     env: Env = Env(env_cfg)

@@ -3,10 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.distributions as dist
 
-from src.utils.config import load_config
-
-
-CONFIG = load_config('train')
+import src.utils.config as config
 
 
 class Encoder(nn.Module):
@@ -20,30 +17,30 @@ class Encoder(nn.Module):
         self.pe = PositionalEncodings()
         self.encoder = nn.TransformerEncoder(
             encoder_layer=nn.TransformerEncoderLayer(
-                d_model=CONFIG['rl']['vit']['patch_size'] ** 2,
-                nhead=CONFIG['rl']['vit']['nhead'],
-                dim_feedforward=CONFIG['rl']['vit']['dim_feedforward_encoder'],
-                dropout=CONFIG['rl']['dropout'],
+                d_model=config.config['rl']['vit']['patch_size'] ** 2,
+                nhead=config.config['rl']['vit']['nhead'],
+                dim_feedforward=config.config['rl']['vit']['dim_feedforward_encoder'],
+                dropout=config.config['rl']['dropout'],
                 activation=F.gelu,
             ),
             num_layers=6,
         )
         self.dense = nn.Sequential(
             nn.Linear(
-                CONFIG['rl']['vit']['image_size'][0] * CONFIG['rl']['vit']['image_size'][1],
-                CONFIG['rl']['vit']['dim_feedforward_conv'],
+                config.config['rl']['vit']['image_size'][0] * config.config['rl']['vit']['image_size'][1],
+                config.config['rl']['vit']['dim_feedforward_conv'],
             ),
             nn.ReLU(),
             nn.Linear(
-                CONFIG['rl']['vit']['dim_feedforward_conv'],
-                CONFIG['rl']['vit']['patch_size']
+                config.config['rl']['vit']['dim_feedforward_conv'],
+                config.config['rl']['vit']['patch_size']
             )
         )
         # Construct the depth map and logvars (variance = inverse certainty)
         self.conv = nn.ConvTranspose2d(
                 in_channels=1,
                 out_channels=2, # Depth and logvar maps
-                kernel_size=CONFIG['rl']['vit']['kernel_size'],
+                kernel_size=config.config['rl']['vit']['kernel_size'],
             )
         
         
@@ -66,12 +63,12 @@ class Encoder(nn.Module):
         # Then flatten the last dimensions
         patches: torch.Tensor = pixels.unfold(
             dimension=-2,
-            size=CONFIG['rl']['vit']['patch_size'],
-            step=CONFIG['rl']['vit']['patch_size'],
+            size=config.config['rl']['vit']['patch_size'],
+            step=config.config['rl']['vit']['patch_size'],
         ).unfold(
             dimension=-1,
-            size=CONFIG['rl']['vit']['patch_size'],
-            step=CONFIG['rl']['vit']['patch_size'],
+            size=config.config['rl']['vit']['patch_size'],
+            step=config.config['rl']['vit']['patch_size'],
         ).flatten(-2, -1)
         # Apply PEs
         patches = self.pe(patches)
@@ -118,14 +115,14 @@ class PositionalEncodings(nn.Module):
         super().__init__()
         # Initialize distribution used to sample params
         distribution = dist.Uniform(
-            -1 / CONFIG['rl']['vit']['patch_size'],
-            1 / CONFIG['rl']['vit']['patch_size'],
+            -1 / config.config['rl']['vit']['patch_size'],
+            1 / config.config['rl']['vit']['patch_size'],
         )
         # Trainable parameters
         self.encodings = nn.Parameter(
             distribution.sample((
-                CONFIG['rl']['vit']['patch_size'] ** 2,
-                CONFIG['rl']['vit']['image_size'][0] * CONFIG['rl']['vit']['image_size'][0],
+                config.config['rl']['vit']['patch_size'] ** 2,
+                config.config['rl']['vit']['image_size'][0] * config.config['rl']['vit']['image_size'][0],
             ))
         )
         

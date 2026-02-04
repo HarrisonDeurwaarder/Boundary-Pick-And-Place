@@ -14,16 +14,15 @@ from isaaclab.utils.math import (
 
 
 def get_osc(
-    sim: sim_utils.SimulationContext,
-    scene: InteractiveScene,
+    num_envs: int,
+    device: torch.device,
 ) -> OperationalSpaceController:
     '''
     Instantiate the OSC and return it
     
     Args:
-        tuple[SimulationContext, InteractiveScene]: A tuple containing:
-            - sim: The simulation context
-            - scene: The interactive scene
+        num_envs (int): The number of environments
+        device (torch.device): The simulation device
     '''
     # Construct the OSC
     cfg: OperationalSpaceControllerCfg = OperationalSpaceControllerCfg(
@@ -40,28 +39,27 @@ def get_osc(
     )
     osc: OperationalSpaceController = OperationalSpaceController(
         cfg, 
-        num_envs=scene.num_envs,
-        device=sim.device
+        num_envs=num_envs,
+        device=device,
     )
     return osc
 
     
 def update_states(
-    sim: sim_utils.SimulationContext,
-    scene: InteractiveScene,
     robot: Articulation,
+    sim_dt: float,
+    num_envs: int,
     ee_frame_idx: int,
     arm_joint_ids: list[int],
     contact_forces: ContactSensor,
 ) -> tuple[torch.Tensor]:
     '''
     Get the required states for OSC computation
-    Contact forces are not explicitily handled for simplicity
     
     Args:
-        sim (SimulationContext): The simulation context
-        scene (InteractiveScene): The interactive scene
         robot (Articulation): The robot articulation
+        sim_dt (float): The simulation dt
+        num_envs (int): The number of environments
         ee_frame_idx (int): The end-effector frame index
         arm_joint_ids (list[int]): The arm joint indices
         contact_forces (ContactSensor): The contact sensor
@@ -120,10 +118,9 @@ def update_states(
     )
     
     # Calculate contact forces
-    sim_dt = sim.get_physics_dt()
     contact_forces.update(sim_dt)
     
-    ee_force_w = torch.zeros(scene.num_envs)
+    ee_force_w = torch.zeros(num_envs)
     ee_force_w, _ = torch.max(torch.mean(contact_forces.data.net_forces_w_history, dim=1), dim=1)
     
     # Early-stage assumption
@@ -146,18 +143,18 @@ def update_states(
     
     
 def update_target(
-    sim: sim_utils.SimulationContext,
-    scene: InteractiveScene,
     osc: OperationalSpaceController,
+    num_envs: int,
+    device: torch.device,
     ee_target: torch.Tensor,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     '''
     Updates the targets for the OSC
     
     Args:
-        sim (SimulationContext): The simulation context
-        scene: (InteractiveScene): The interactive scene
         osc: (OperationalSpaceController): The operational space controller
+        num_envs (int): The number of environments
+        device (torch.device): The simulation device
         ee_target: (torch.tensor): End-effector target
         
     Returns:
@@ -168,14 +165,14 @@ def update_target(
     '''
     # Update the EE's desired command
     command = torch.zeros(
-        scene.num_envs,
+        num_envs,
         osc.action_dim,
-        device=sim.device,
+        device=device,
     )
     command[:] = ee_target
     
     # Update the EE's desired pose (init as zeros)
-    ee_target_pose_b: torch.Tensor = torch.zeros(scene.num_envs, 7, device=sim.device)
+    ee_target_pose_b: torch.Tensor = torch.zeros(num_envs, 7, device=device)
     for target_type in osc.cfg.target_types:
        # If absolute pose is a target type, update the target pose to the command
         if target_type == 'pose_abs':

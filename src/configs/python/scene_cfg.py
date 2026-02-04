@@ -5,19 +5,16 @@ from isaaclab.assets import ArticulationCfg, Articulation
 from isaaclab.assets import AssetBaseCfg
 from isaaclab.assets import RigidObjectCfg
 from isaaclab.scene import InteractiveSceneCfg
-from isaaclab.sensors import CameraCfg, ContactSensorCfg
+from isaaclab.sensors import CameraCfg, TiledCameraCfg, ContactSensorCfg
 from isaaclab.utils import configclass
 
 from isaaclab_assets import FRANKA_PANDA_HIGH_PD_CFG
 
 import torch
-from src.utils.config import load_config
+import src.utils.config as config
 
 
-CONFIG = load_config('train')
-
-
-thickness: float = CONFIG['scene']['room']['wall_thickness']
+thickness: float = config.config['scene']['room']['wall_thickness']
 # Default wall spawn, prior to DR
 default_spawn: sim_utils.CuboidCfg = sim_utils.CuboidCfg(
     size=(1.0, 1.0, 1.0),
@@ -47,8 +44,8 @@ class SceneCfg(InteractiveSceneCfg):
     # Lighting
     light: AssetBaseCfg = AssetBaseCfg(
         prim_path='{ENV_REGEX_NS}/Light',
-        spawn = sim_utils.DomeLightCfg(intensity=CONFIG['scene']['light']['intensity'],
-                                       color=tuple(CONFIG['scene']['light']['color'])),
+        spawn = sim_utils.DomeLightCfg(intensity=config.config['scene']['light']['intensity'],
+                                       color=tuple(config.config['scene']['light']['color'])),
     )
     # Robot config
     robot: ArticulationCfg = FRANKA_PANDA_HIGH_PD_CFG.replace(
@@ -56,24 +53,21 @@ class SceneCfg(InteractiveSceneCfg):
         init_state=FRANKA_PANDA_HIGH_PD_CFG.init_state.replace(
             pos=(0.0, 0.0, thickness),
         ),
-        spawn=sim_utils.UsdFileCfg(
-            usd_path=FRANKA_PANDA_HIGH_PD_CFG.spawn.usd_path,
-            activate_contact_sensors=True,
-        )
     )
+    robot.spawn.activate_contact_sensors = True
     
     # Sensors
     camera: CameraCfg = CameraCfg(
-        prim_path='{ENV_REGEX_NS}/Robot/base/camera',
+        prim_path='{ENV_REGEX_NS}/Robot/panda_hand/front_cam',
         update_period=0.1,
-        height=CONFIG['scene']['sensor']['camera']['camera_height'],
-        width=CONFIG['scene']['sensor']['camera']['camera_width'],
+        height=config.config['scene']['sensor']['camera']['camera_height'],
+        width=config.config['scene']['sensor']['camera']['camera_width'],
         data_types=['rgb', 'distance_to_image_plane'],
         spawn=sim_utils.PinholeCameraCfg(
-            focal_length=CONFIG['scene']['sensor']['camera']['focal_length'],
-            focus_distance=CONFIG['scene']['sensor']['camera']['focus_distance'],
-            horizontal_aperture=CONFIG['scene']['sensor']['camera']['horizontal_aperture'],
-            clipping_range=CONFIG['scene']['sensor']['camera']['clipping_range'],
+            focal_length=config.config['scene']['sensor']['camera']['focal_length'],
+            focus_distance=config.config['scene']['sensor']['camera']['focus_distance'],
+            horizontal_aperture=config.config['scene']['sensor']['camera']['horizontal_aperture'],
+            clipping_range=(0.1, 1.0e5),
         ),
         offset=CameraCfg.OffsetCfg(
             convention='ros'
@@ -81,9 +75,9 @@ class SceneCfg(InteractiveSceneCfg):
     )
     
     contact_forces: ContactSensorCfg = ContactSensorCfg(
-        prim_path='{ENV_REGEX_NS}/Robot/robot_hand',
+        prim_path='{ENV_REGEX_NS}/Robot',
         update_period=0.0,
-        history_length=CONFIG['scene']['sensor']['force_history_length'],
+        history_length=config.config['scene']['sensor']['force_history_length'],
         debug_vis=True,
     )
     

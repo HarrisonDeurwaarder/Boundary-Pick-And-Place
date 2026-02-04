@@ -5,11 +5,8 @@ from isaaclab.managers import EventTermCfg
 from isaaclab.envs import mdp
 from isaaclab.managers import SceneEntityCfg
 
-from src.utils.config import load_config
 from src.sim.domain_randomization import randomize_room_dimensions
-
-
-CONFIG = load_config('train')
+import src.utils.config as config
 
 
 @configclass
@@ -24,10 +21,10 @@ class EventCfg:
         mode='reset',
         params={
             'asset_cfg': SceneEntityCfg('robot', body_names='.*'),
-            'static_friction_range': CONFIG['event']['robot']['material']['static_friction_range'],
-            'dynamic_friction_range': CONFIG['event']['robot']['material']['dynamic_friction_range'],
-            'restitution_range': CONFIG['event']['robot']['material']['restitution_range'],
-            'num_buckets': CONFIG['event']['robot']['material']['num_buckets'],
+            'static_friction_range': config.config['event']['robot']['material']['static_friction_range'],
+            'dynamic_friction_range': config.config['event']['robot']['material']['dynamic_friction_range'],
+            'restitution_range': config.config['event']['robot']['material']['restitution_range'],
+            'num_buckets': config.config['event']['robot']['material']['num_buckets'],
         },
     )
     robot_stiffness_damping: EventTermCfg = EventTermCfg(
@@ -35,8 +32,8 @@ class EventCfg:
         mode='reset',
         params={
             'asset_cfg': SceneEntityCfg('robot', body_names='.*'),
-            'stiffness_distribution_params': CONFIG['event']['robot']['actuator_gains']['stiffness_distribution_params'],
-            'damping_distribution_params': CONFIG['event']['robot']['actuator_gains']['damping_distribution_params'],
+            'stiffness_distribution_params': config.config['event']['robot']['actuator_gains']['stiffness_distribution_params'],
+            'damping_distribution_params': config.config['event']['robot']['actuator_gains']['damping_distribution_params'],
             'operation': 'scale',
             'distribution': 'log_uniform',
         },
@@ -46,7 +43,7 @@ class EventCfg:
         mode='reset',
         params={
             'asset_cfg': SceneEntityCfg('robot', body_names='.*'),
-            'mass_distribution_params': CONFIG['event']['robot']['mass']['mass_distribution_params'],
+            'mass_distribution_params': config.config['event']['robot']['mass']['mass_distribution_params'],
             'operation': 'scale',
             'distribution': 'log_uniform',
         },
@@ -56,8 +53,8 @@ class EventCfg:
         mode='reset',
         params={
             'asset_cfg': SceneEntityCfg('robot', body_names='.*'),
-            'friction_distribution_params': CONFIG['event']['robot']['joint_params']['friction_distribution_params'],
-            'armature_distribution_params': CONFIG['event']['robot']['joint_params']['armature_distribution_params'],
+            'friction_distribution_params': config.config['event']['robot']['joint_params']['friction_distribution_params'],
+            'armature_distribution_params': config.config['event']['robot']['joint_params']['armature_distribution_params'],
             'operation': 'scale',
             'distribution': 'log_uniform',
         },
@@ -67,8 +64,8 @@ class EventCfg:
         mode='reset',
         params={
             'asset_cfg': SceneEntityCfg('robot', body_names='.*'),
-            'force_range': CONFIG['event']['robot']['force_torque']['force_range'],
-            'torque_range': CONFIG['event']['robot']['force_torque']['torque_range'],
+            'force_range': config.config['event']['robot']['force_torque']['force_range'],
+            'torque_range': config.config['event']['robot']['force_torque']['torque_range'],
         },
     )
     robot_joints_scale: EventTermCfg = EventTermCfg(
@@ -76,8 +73,8 @@ class EventCfg:
         mode='reset',
         params={
             'asset_cfg': SceneEntityCfg('robot', body_names='.*'),
-            'position_range': CONFIG['event']['robot']['reset_joints']['position_range'],
-            'velocity_range': CONFIG['event']['robot']['reset_joints']['velocity_range'],
+            'position_range': config.config['event']['robot']['reset_joints']['position_range'],
+            'velocity_range': config.config['event']['robot']['reset_joints']['velocity_range'],
         },
     )
     
@@ -86,7 +83,7 @@ class EventCfg:
         func=mdp.randomize_physics_scene_gravity,
         mode='reset',
         params={
-            'gravity_distribution_params': CONFIG['event']['physics']['gravity']['gravity_distribution_params'],
+            'gravity_distribution_params': config.config['event']['physics']['gravity']['gravity_distribution_params'],
             'operation': 'add',
             'distribution': 'gaussian',
         },
@@ -105,8 +102,8 @@ class EventCfg:
                 lambda prim: SceneEntityCfg(prim),
                 ['wall_x1', 'wall_x2', 'wall_y1', 'wall_y2', 'wall_z1', 'wall_z2'],
             ),
-            'x_range': CONFIG['scene']['room']['x_range'],
-            'y_range': CONFIG['scene']['room']['y_range'],
-            'z_range': CONFIG['scene']['room']['z_range'],
+            'x_range': config.config['scene']['room']['x_range'],
+            'y_range': config.config['scene']['room']['y_range'],
+            'z_range': config.config['scene']['room']['z_range'],
         },
     )
