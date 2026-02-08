@@ -153,6 +153,7 @@ def run_sim(
                 arm_joint_ids=arm_joint_ids,
                 contact_forces=contact_forces,
             )
+            print(mass_mat)
             # Get joint commands
             joint_efforts: torch.Tensor = osc.compute(
                 jacobian_b=jacobian_b,
@@ -196,8 +197,10 @@ def main() -> None:
     sim: sim_utils.SimulationContext = sim_utils.SimulationContext(sim_cfg,)
     # Design the scene and reset it
     scene_cfg: SceneCfg = SceneCfg(
-        num_envs=2,
-        env_spacing=20.0
+        num_envs=9,
+        env_spacing=20.0,
+        replicate_physics=False,
+        clone_in_fabric=False,
     )
     scene: InteractiveScene = InteractiveScene(scene_cfg,)
     

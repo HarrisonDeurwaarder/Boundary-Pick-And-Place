@@ -59,11 +59,11 @@ def run_sim(
     while sim_app.is_running():
         
         # Sample the action
-        ee_pose_task: torch.Tensor = pose_dist.sample((7,)).to(sim.device)
-        ee_wrench_task: torch.Tensor = wrench_dist.sample((6,)).to(sim.device)
-        kp_task: torch.Tensor = kp_dist.sample((6,)).to(sim.device)
+        ee_pose_task: torch.Tensor = pose_dist.sample((env.num_envs, 7,)).to(sim.device)
+        ee_wrench_task: torch.Tensor = wrench_dist.sample((env.num_envs, 6,)).to(sim.device)
+        kp_task: torch.Tensor = kp_dist.sample((env.num_envs, 6,)).to(sim.device)
         
-        ee_targets: torch.Tensor = torch.cat([ee_pose_task, ee_wrench_task, kp_task])
+        ee_targets: torch.Tensor = torch.cat([ee_pose_task, ee_wrench_task, kp_task], dim=1)
         # Environment takes an ee target, each decimation a substep is then taken
         _, _, term, trunc, _ = env.step(ee_targets)
         
@@ -73,6 +73,12 @@ def run_sim(
         scene.update(sim_dt)
         # Update sim-time
         count += 1
+
+        print("Received shape of rgb   image: ", scene["camera"].data.output["rgb"].shape)
+        print("Received shape of depth image: ", scene["camera"].data.output["distance_to_image_plane"].shape)
+        print("-------------------------------")
+        print(scene["contact_forces"])
+        print("Received max contact force of: ", torch.max(scene["contact_forces"].data.net_forces_w).item())
         
         # If episode has ended
         if torch.any(term) or torch.any(trunc):
@@ -99,7 +105,7 @@ def main() -> None:
     logging.info('Setup complete.')
     
     run_sim(
-        env_cfg.sim,
+        env.sim,
         env,
         pose_dist=Uniform(-2.0, 2.0),
         wrench_dist=Uniform(0.0, 20.0),
