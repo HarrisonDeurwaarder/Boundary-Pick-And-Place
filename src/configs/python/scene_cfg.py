@@ -57,6 +57,30 @@ class SceneCfg(InteractiveSceneCfg):
     )
     robot.spawn.activate_contact_sensors = True
     
+    # Sensors to be injected into scene
+    camera: TiledCameraCfg = TiledCameraCfg(
+        prim_path='/World/envs/env_.*/Robot/panda_hand/front_cam',
+        update_period=0.1,
+        height=config.config['scene']['sensor']['camera']['camera_height'],
+        width=config.config['scene']['sensor']['camera']['camera_width'],
+        data_types=['rgb', 'distance_to_image_plane'],
+        spawn=sim_utils.PinholeCameraCfg(
+            focal_length=config.config['scene']['sensor']['camera']['focal_length'],
+            focus_distance=config.config['scene']['sensor']['camera']['focus_distance'],
+            horizontal_aperture=config.config['scene']['sensor']['camera']['horizontal_aperture'],
+            clipping_range=(0.1, 1.0e5),
+        ),
+        offset=CameraCfg.OffsetCfg(
+            convention='ros'
+        ),
+    )
+    contact_forces: ContactSensorCfg = ContactSensorCfg(
+        prim_path='/World/envs/env_.*/Robot/panda_hand',
+        update_period=0.0,
+        history_length=config.config['scene']['sensor']['force_history_length'],
+        debug_vis=True,
+    )
+    
     # Generate and place prims
     wall_x1 = AssetBaseCfg(
         prim_path='{ENV_REGEX_NS}/wallx1',
