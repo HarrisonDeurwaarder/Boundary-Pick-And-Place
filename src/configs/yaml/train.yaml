@@ -6,31 +6,43 @@ env:
   angle_obs_space: 7
   velocity_obs_space: 7
   state_space: 0
+  rewards:
+    sparse_height_bonus_threshold: 0.30
+    orient_alignment_coef: 0.25
+    cube_height_coef: 0.0
+    sparse_height_bonus_coef: 20.0
+    ee_prismatic_vel_coef: 0.05
+    cube_z_vel_coef: 1.0
+    dist_penalty_coef: -0.05
+    passive_penalty_coef: -0.0001
 
 scene:
   num_envs: 9
-  env_spacing: 10.0
+  env_spacing: 20.0
   replicate_physics: False
-  clone_in_fabric: True
+  clone_in_fabric: False
   dt: 0.01
   render_interval: 2
   room:
-    x_range: [5, 15] # [M]
-    y_range: [5, 15] # [M]
-    z_range: [3, 10] # [M]
-    wall_thickness: 0.1 # [M]
+    x_range: [5, 10] # [M]
+    y_range: [5, 10] # [M]
+    z_range: [3, 8] # [M]
+    wall_thickness: 0.01 # [M]
   light:
     intensity: 3000
     color: [0.75, 0.75, 0.75]
   sensor:
     camera:
-      camera_height: 480 # [pixels]
-      camera_width: 640 # [pixels]
+      camera_height: 100 # [pixels]
+      camera_width: 100 # [pixels]
       focal_length: 24.0
       focus_distance: 400.0
       horizontal_aperture: 20.955
       clipping_range: [0.1, 1.0e5]
     force_history_length: 5
+  marker:
+    translation: 0.4
+    scale: [0.2, 0.2, 0.6]
 
 rl:
   ppo:
@@ -38,8 +50,8 @@ rl:
     gae_decay: 0.98
     entropy_coefficient: 0.01
   vit:
-    image_size: [480, 640] # [pixels]
-    patch_size: 16 # [pixels]
+    image_size: [100, 100] # [pixels]
+    patch_size: 10 # [pixels]
     encoder:
       n_head: 8
       dim_feedforward_encoder: 1028
