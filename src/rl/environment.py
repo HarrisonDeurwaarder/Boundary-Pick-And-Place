@@ -4,9 +4,12 @@ import numpy as np
 from collections.abc import Sequence
 from typing import Any
 
+import isaaclab.sim as sim_utils
 from isaaclab.envs import DirectRLEnvCfg, DirectRLEnv
 from isaaclab.utils import configclass
 from isaaclab.sim import SimulationCfg
+from isaaclab.assets import Articulation
+from isaaclab.sensors import Camera, TiledCamera, ContactSensor
 
 from src.configs.python.scene_cfg import SceneCfg
 from src.configs.python.environment_cfg import EnvCfg
@@ -25,7 +28,8 @@ class Env(DirectRLEnv):
     ) -> None:
         super().__init__(env_cfg, render_mode, **kwargs)
         # Extract assets of interest from scene
-        self.robot, self.contact_forces = self.scene['robot'], self.scene['contact_forces']
+        self.robot = self.scene['robot']
+        self.contact_forces = self.scene['contact_forces']
         
         # Extract robot joint IDs
         ee_frame_name = 'panda_leftfinger'
@@ -39,6 +43,15 @@ class Env(DirectRLEnv):
         self.osc = get_osc(
             self.num_envs, self.sim.device,
         )
+        
+        
+    def _setup_scene(self,):
+        # Set up sensors
+        self._contact_forces = ContactSensor(self.cfg.contact_forces)
+        self.scene.sensors["contact_forces"] = self._contact_forces
+        self._camera = Camera(self.cfg.camera)
+        self.scene.sensors["camera"] = self._camera
+        super()._setup_scene()
     
     
     def _step_impl(

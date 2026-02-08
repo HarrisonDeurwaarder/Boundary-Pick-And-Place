@@ -1,5 +1,5 @@
 env:
-  decimation: 2
+  decimation: 1
   episode_length: 5.0 # [sec]
   action_scale: 100.0 # [N]
   action_space: 7
@@ -8,9 +8,9 @@ env:
   state_space: 0
 
 scene:
-  num_envs: 2
+  num_envs: 9
   env_spacing: 10.0
-  replicate_physics: True
+  replicate_physics: False
   clone_in_fabric: True
   dt: 0.01
   render_interval: 2

@@ -92,13 +92,14 @@ def main() -> None:
     env_cfg: EnvCfg = EnvCfg()
     env: Env = Env(env_cfg)
     # Load the simulation
-    sim: sim_utils.SimulationContext = sim_utils.SimulationContext(env_cfg.sim,)
-    sim.reset()
+    '''sim: sim_utils.SimulationContext = sim_utils.SimulationContext(env_cfg.sim,)
+    sim.reset()'''
+    env.reset()
     # Log the completed setup
     logging.info('Setup complete.')
     
     run_sim(
-        sim,
+        env_cfg.sim,
         env,
         pose_dist=Uniform(-2.0, 2.0),
         wrench_dist=Uniform(0.0, 20.0),

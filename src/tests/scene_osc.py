@@ -171,6 +171,12 @@ def run_sim(
             )
             robot.write_data_to_sim()
 
+        print("Received shape of rgb   image: ", scene["camera"].data.output["rgb"].shape)
+        print("Received shape of depth image: ", scene["camera"].data.output["distance_to_image_plane"].shape)
+        print("-------------------------------")
+        print(scene["contact_forces"])
+        print("Received max contact force of: ", torch.max(scene["contact_forces"].data.net_forces_w).item())
+
         # Perform step
         sim.step(render=True)
         # Update robot buffers
