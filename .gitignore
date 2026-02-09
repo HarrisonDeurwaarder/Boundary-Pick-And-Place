@@ -1,2 +1,3 @@
 # Python bytecode in all subdirectories
 **/__pycache__/
+**/.idea/
