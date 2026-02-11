@@ -1,6 +1,6 @@
 from time import time
 
-from src.utils.logger import logging
+from source.utils.logger import logging
 from typing import Callable, Any
 
 
