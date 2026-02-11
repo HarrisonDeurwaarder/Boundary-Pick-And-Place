@@ -1,13 +1,13 @@
 import torch
 
-from src.sim.launch_app import launch_app
+from source.sim.launch_app import launch_app
 
 sim_app, args_cli = launch_app(
     enable_cameras=True,
 )
     
-from src.configs.python.scene_cfg import SceneCfg
-from src.utils.logger import logging
+from source.configs.python.scene_cfg import SceneCfg
+from source.utils.logger import logging
     
 from isaaclab.scene import InteractiveScene, InteractiveSceneCfg
 from isaaclab.sim import SimulationContext, SimulationCfg

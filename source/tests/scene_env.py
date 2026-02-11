@@ -1,8 +1,8 @@
 import torch
 from torch.distributions import Uniform
 
-from src.sim.launch_app import launch_app
-from src.utils.config import load_config
+from source.sim.launch_app import launch_app
+from source.utils.config import load_config
 
 # Define and launch the app
 sim_app, args_cli = launch_app(
@@ -21,12 +21,11 @@ from isaaclab.sim import SimulationContext, SimulationCfg
 from isaaclab_assets import FRANKA_PANDA_HIGH_PD_CFG
 import isaacsim.core.utils.stage as stage_utils
 
-from src.sim.osc import update_states, get_osc, update_target, convert_to_task_frame
-from src.utils.logger import logging
-from src.configs.python.scene_cfg import SceneCfg
-from src.configs.python.environment_cfg import EnvCfg
-from src.rl.environment import Env
-
+from source.sim.osc import update_states, get_osc, update_target, convert_to_task_frame
+from source.utils.logger import logging
+from source.configs.python.scene_cfg import SceneCfg
+from source.configs.python.environment_cfg import EnvCfg
+from source.core.rl.environment import Env
 
 def run_sim(
     sim: sim_utils.SimulationContext,

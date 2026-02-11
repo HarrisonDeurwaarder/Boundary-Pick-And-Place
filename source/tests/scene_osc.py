@@ -2,8 +2,8 @@ import numpy as np
 import torch
 from torch.distributions import Uniform
 
-from src.sim.launch_app import launch_app
-from src.utils.config import load_config
+from source.sim.launch_app import launch_app
+from source.utils.config import load_config
 
 # Define and launch the app
 sim_app, args_cli = launch_app(enable_cameras=True)
@@ -17,9 +17,9 @@ from isaaclab.assets import Articulation
 from isaaclab.sensors import CameraCfg, ContactSensorCfg
 from isaaclab.sim import SimulationContext, SimulationCfg
 
-from src.sim.osc import update_states, get_osc, update_target, convert_to_task_frame
-from src.utils.logger import logging
-from src.configs.python.scene_cfg import SceneCfg
+from source.sim.osc import update_states, get_osc, update_target, convert_to_task_frame
+from source.utils.logger import logging
+from source.configs.python.scene_cfg import SceneCfg
 
 
 def run_sim(

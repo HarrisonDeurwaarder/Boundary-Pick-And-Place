@@ -1,3 +1,8 @@
 # Python bytecode in all subdirectories
 **/__pycache__/
+# Downloaded assets
+source/data
+# Trained models
+source/models
+
 **/.idea/
