@@ -46,7 +46,7 @@ scene:
   object:
     n_assets: 10
     distance_range_from_origin: [0.2, 0.5]
-    vertical_placement: 0.4
+    vertical_placement: 0.1
 
 rl:
   ppo:

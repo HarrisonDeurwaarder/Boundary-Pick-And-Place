@@ -24,6 +24,8 @@ from source.utils.math import vect_to_quat
 from source.utils.timer import timer
 import source.utils.config as config
 
+import omni.physx as _physx
+
     
 class Env(DirectRLEnv):
     '''
@@ -31,11 +33,10 @@ class Env(DirectRLEnv):
     '''
     def __init__(
         self,
-        env_cfg: EnvCfg,
         render_mode: str | None = None,
         **kwargs,
     ) -> None:
-        super().__init__(env_cfg, render_mode, **kwargs)
+        super().__init__(EnvCfg(), render_mode, **kwargs)
         # Extract assets of interest from scene
         self.robot = self.scene['robot']
         self.contact_forces = self.scene['contact_forces']
@@ -139,8 +140,6 @@ class Env(DirectRLEnv):
                 dim=0,
             ),
         )
-        # Update robot buffers
-        self.robot.update(self.physics_dt)
     
     
     def _apply_action(self,) -> None:
@@ -173,11 +172,12 @@ class Env(DirectRLEnv):
             current_joint_vel=joint_vel,
             nullspace_joint_pos_target=self.joint_centers,
         )
-        print(joint_efforts)
+        # Write joint effort
         self.robot.set_joint_effort_target(
                 joint_efforts, 
                 joint_ids=self.arm_joint_ids,
             )
+        self.robot.update(self.physics_dt)
         self.robot.write_data_to_sim()
         
         
@@ -267,19 +267,13 @@ class Env(DirectRLEnv):
         self,
         env_ids: Sequence[int] | None = None
     ) -> None:
-        # Pause sim for USD modifications
-        self.sim.pause()
         # Default is all environments
         if env_ids is None:
             env_ids = self.robot._ALL_INDICES
+        # Pause sim for USD modifications
+        self.sim.pause()
         super()._reset_idx(env_ids)
         self.sim.play()
-        # Reset OSC
+        # Reset OSC and sim
+        self.sim.reset()
         self.osc.reset()
-        # Reset robot state
-        default_joint_pos = self.robot.data.default_joint_pos.clone()
-        default_joint_vel = self.robot.data.default_joint_vel.clone()
-        self.robot.write_joint_state_to_sim(default_joint_pos, default_joint_vel)
-        self.robot.write_data_to_sim()
-        self.robot.reset()
-        self.robot.update(self.physics_dt,)
