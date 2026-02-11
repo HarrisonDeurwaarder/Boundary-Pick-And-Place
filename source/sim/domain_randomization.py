@@ -5,14 +5,18 @@ from isaaclab.managers import EventTermCfg
 from isaaclab.envs import mdp, ManagerBasedEnv
 from isaaclab.managers import SceneEntityCfg
 
+from isaaclab.assets import AssetBaseCfg
+
 from isaacsim.core.utils import prims as prim_utils
 from isaacsim.core.utils.stage import get_current_stage
 from pxr import Sdf, Gf, UsdGeom, Vt
 
 import torch
+import torch.nn.functional as F
+from random import choices
 from typing import Sequence
 
-import src.utils.config as config
+import source.utils.config as config
 
 
 thickness: float = config.config['scene']['room']['wall_thickness']
@@ -191,6 +195,105 @@ def randomize_room_dimensions(
                 # Ensure operations are done in correct order
                 # If neither attributes are missing, assume order is correct
                 if scale_spec is None or translate_spec is None:
+                    op_order_spec = prim_spec.GetAttributeAtPath(prim_path + '.xformOpOrder')
+                    if op_order_spec is None:
+                        op_order_spec = Sdf.AttributeSpec(
+                            prim_spec, UsdGeom.Tokens.xformOpOrder, Sdf.ValueTypeNames.TokenArray
+                        )
+                    op_order_spec.default = Vt.TokenArray([
+                        'xformOp:translate',
+                        'xformOp:orient',
+                        'xformOp:scale',
+                    ])
+                    
+                    
+def randomize_object_pose(
+    env: ManagerBasedEnv,
+    env_ids: torch.Tensor | None,
+    asset_cfgs: Sequence[SceneEntityCfg],
+    distance_range_from_origin: tuple[float],
+) -> None:
+    '''
+    Randomize a spawned asset
+    
+    Args:
+        env (ManagerBasedEnvironment): Environment object containing the cuboids
+        env_ids (Tensor | None): IDs of each environment instance
+        asset_cfg (SceneEntityCfg): Targetted asset
+        distance_range_from_origin (tuple[float]): Min/max distance that the asset can be translated from the origin
+    '''
+    
+    # Check if sim is running
+    if env.sim.is_playing():
+        raise RuntimeError('USD property modification attempted while simulation was running')
+    
+    # Resolve environment ids
+    if env_ids is None:
+        env_ids = torch.arange(env.scene.num_envs, device='cpu')
+    else:
+        env_ids = env_ids.cpu()
+    # Get stage for USD manipulation
+    stage = get_current_stage()
+    
+    # Compute polar offset
+    dist_from_origin: torch.Tensor = distance_range_from_origin[0] + torch.rand((env.num_envs, len(asset_cfgs),), device=env.sim.device) * (distance_range_from_origin[1] - distance_range_from_origin[0])
+    theta: torch.Tensor = torch.rand((env.num_envs, len(asset_cfgs),), device=env.sim.device) * 2 * torch.pi
+    # Convert to cart
+    offset: torch.Tensor = torch.stack((
+            dist_from_origin * torch.cos(theta),
+            dist_from_origin * torch.sin(theta),
+            torch.full(
+                (env.num_envs, len(asset_cfgs),),
+                config.config['scene']['object']['vertical_placement'],
+                device=env.sim.device,
+            ),
+        ),
+        dim=2,
+    )
+    
+    # Sample raw quaternions
+    raw_quat_rots: torch.Tensor = torch.rand((env.num_envs, len(asset_cfgs), 4,), device=env.sim.device)
+    # Normalize quats
+    quat_rots: torch.Tensor = F.normalize(raw_quat_rots, dim=2,)
+    
+    # Iter through all prims
+    with Sdf.ChangeBlock():
+        for i, asset_cfg in enumerate(asset_cfgs):
+            # Resolve prim paths for spawning and cloning
+            asset = env.scene[asset_cfg.name]
+            prim_paths = sim_utils.find_matching_prim_paths(asset.cfg.prim_path)
+            
+            for j, env_id in enumerate(env_ids):
+                prim_path = prim_paths[env_id]
+                prim_spec = Sdf.CreatePrimInLayer(stage.GetRootLayer(), prim_path)
+                
+                # Get orient attribute
+                orient_spec = prim_spec.GetAttributeAtPath(prim_path + '.xformOp:orient')
+                # If attribute doesn't exist, create it
+                if orient_spec is None:
+                    orient_spec = Sdf.AttributeSpec(
+                        prim_spec,
+                        prim_path + '.xformOp:scale',
+                        Sdf.ValueTypeNames.Quatd,
+                    )
+                # Set new orient
+                orient_spec.default = Gf.Quatd(*quat_rots[j, i].tolist())
+                
+                # Get translation attribute
+                translate_spec = prim_spec.GetAttributeAtPath(prim_path + '.xformOp:translate')
+                # If attribute doesn't exist, create it
+                if translate_spec is None:
+                    translate_spec = Sdf.AttributeSpec(
+                        prim_spec,
+                        prim_path + '.xformOp:translate',
+                        Sdf.ValueTypeNames.Double3,
+                    )
+                # Set new scale
+                translate_spec.default = Gf.Vec3f(*offset[j, i].tolist())
+                
+                # Ensure operations are done in correct order
+                # If neither attributes are missing, assume order is correct
+                if orient_spec is None or translate_spec is None:
                     op_order_spec = prim_spec.GetAttributeAtPath(prim_path + '.xformOpOrder')
                     if op_order_spec is None:
                         op_order_spec = Sdf.AttributeSpec(
