@@ -1,7 +1,7 @@
 env:
   decimation: 1
   episode_length: 5.0 # [sec]
-  action_scale: 100.0 # [N]
+  action_scale: 100.0
   action_space: 7
   angle_obs_space: 7
   velocity_obs_space: 7
@@ -17,8 +17,8 @@ env:
     passive_penalty_coef: -0.0001
 
 scene:
-  num_envs: 9
-  env_spacing: 20.0
+  num_envs: 32
+  env_spacing: 10.0
   replicate_physics: False
   clone_in_fabric: False
   dt: 0.01
@@ -27,15 +27,15 @@ scene:
     x_range: [5, 10] # [M]
     y_range: [5, 10] # [M]
     z_range: [3, 8] # [M]
-    wall_thickness: 0.01 # [M]
+    wall_thickness: 0.0 # [M]
   light:
     intensity: 3000
     color: [0.75, 0.75, 0.75]
   sensor:
     camera:
-      camera_height: 100 # [pixels]
-      camera_width: 100 # [pixels]
-      focal_length: 24.0
+      camera_height: 32 # [pixels]
+      camera_width: 32 # [pixels]
+      focal_length: 50.0
       focus_distance: 400.0
       horizontal_aperture: 20.955
       clipping_range: [0.1, 1.0e5]
@@ -43,22 +43,32 @@ scene:
   marker:
     translation: 0.4
     scale: [0.2, 0.2, 0.6]
+  object:
+    n_assets: 10
+    distance_range_from_origin: [0.2, 0.5]
+    vertical_placement: 0.4
 
 rl:
   ppo:
     discount_factor: 0.99
     gae_decay: 0.98
     entropy_coefficient: 0.01
+
+sl:
+  batch_size: 32
+  epochs: 20
+  lr: 0.0003
+  mse_coef: 0.14
   vit:
+    dropout: 0.1
     image_size: [100, 100] # [pixels]
     patch_size: 10 # [pixels]
     encoder:
-      n_head: 8
-      dim_feedforward_encoder: 1028
+      n_head: 10
+      dim_feedforward_encoder: 1024
       num_layers: 6
       dim_feedforward_conv: 512
       kernel_size: 3
-  dropout: 0.1
 
 event:
   robot:

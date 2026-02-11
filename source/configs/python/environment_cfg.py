@@ -6,9 +6,9 @@ from isaaclab.sim import SimulationCfg
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.sensors import CameraCfg, TiledCameraCfg, ContactSensorCfg
 
-from src.configs.python.scene_cfg import SceneCfg
-from src.configs.python.event_cfg import EventCfg
-import src.utils.config as config
+from source.configs.python.scene_cfg import SceneCfg
+from source.configs.python.event_cfg import EventCfg
+import source.utils.config as config
 
 
 @configclass

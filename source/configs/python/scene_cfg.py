@@ -7,16 +7,28 @@ from isaaclab.assets import RigidObjectCfg
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.sensors import CameraCfg, TiledCameraCfg, ContactSensorCfg
 from isaaclab.utils import configclass
+from isaaclab.sim import UsdFileCfg, RigidBodyPropertiesCfg, MassPropertiesCfg
 
 from isaaclab_assets import FRANKA_PANDA_CFG
+from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
 
 import torch
-import src.utils.config as config
+import os
+from pathlib import Path
+
+from random import shuffle
+import source.utils.config as config
+from source.utils.file_io import read_list
+
+
+usd_dir: Path = Path('source/data/assets/RBProps')
+usd_files: list[str] = [str(f) for f in usd_dir.rglob('*.usd')]
+usd_assets: list[UsdFileCfg] = [sim_utils.UsdFileCfg(usd_path=path,) for path in usd_files[:50]]
 
 
 thickness: float = config.config['scene']['room']['wall_thickness']
 # Default wall spawn, prior to DR
-default_spawn: sim_utils.CuboidCfg = sim_utils.CuboidCfg(
+'''default_spawn: sim_utils.CuboidCfg = sim_utils.CuboidCfg(
     size=(1.0, 1.0, 1.0),
     rigid_props=sim_utils.RigidBodyPropertiesCfg(
         disable_gravity=True,
@@ -25,11 +37,18 @@ default_spawn: sim_utils.CuboidCfg = sim_utils.CuboidCfg(
     activate_contact_sensors=True,
     mass_props=sim_utils.MassPropertiesCfg(mass=1.0),
     collision_props=sim_utils.CollisionPropertiesCfg(),
-    visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(1.0, 1.0, 1.0)),
+    visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(1.0, 1.0, 1.0),),
     physics_material=sim_utils.RigidBodyMaterialCfg(
         static_friction=0.8, dynamic_friction=0.6, restitution=0.1,
     ),
+)'''
+
+default_object_spawn: sim_utils.MultiAssetSpawnerCfg = sim_utils.MultiAssetSpawnerCfg(
+    assets_cfg=usd_assets,
+    random_choice=True,
 )
+# Dimension range
+dim_range: list = torch.arange(0.01, 0.1, 0.02).tolist()
 
 
 @configclass
@@ -58,7 +77,7 @@ class SceneCfg(InteractiveSceneCfg):
     robot.spawn.activate_contact_sensors = True
     
     # Sensors to be injected into scene
-    camera: TiledCameraCfg = TiledCameraCfg(
+    camera: CameraCfg = CameraCfg(
         prim_path='/World/envs/env_.*/Robot/panda_hand/front_cam',
         update_period=0.1,
         height=config.config['scene']['sensor']['camera']['camera_height'],
@@ -80,29 +99,70 @@ class SceneCfg(InteractiveSceneCfg):
         history_length=config.config['scene']['sensor']['force_history_length'],
         debug_vis=True,
     )
-    
+    '''
     # Generate and place prims
-    wall_x1 = AssetBaseCfg(
+    wall_x1 = RigidObjectCfg(
         prim_path='{ENV_REGEX_NS}/wallx1',
-        spawn=default_spawn,
+        spawn=default_spawn.replace(),
     )
-    wall_x2 = AssetBaseCfg(
+    wall_x2 = RigidObjectCfg(
         prim_path='{ENV_REGEX_NS}/wallx2',
-        spawn=default_spawn,
+        spawn=default_spawn.replace(),
     )
-    wall_y1 = AssetBaseCfg(
+    wall_y1 = RigidObjectCfg(
         prim_path='{ENV_REGEX_NS}/wally1',
-        spawn=default_spawn,
+        spawn=default_spawn.replace(),
     )
-    wall_y2 = AssetBaseCfg(
+    wall_y2 = RigidObjectCfg(
         prim_path='{ENV_REGEX_NS}/wally2',
-        spawn=default_spawn,
+        spawn=default_spawn.replace(),
     )
-    wall_z1 = AssetBaseCfg(
+    wall_z1 = RigidObjectCfg(
         prim_path='{ENV_REGEX_NS}/wallz1',
-        spawn=default_spawn,
+        spawn=default_spawn.replace(),
     )
-    wall_z2 = AssetBaseCfg(
+    wall_z2 = RigidObjectCfg(
         prim_path='{ENV_REGEX_NS}/wallz2',
-        spawn=default_spawn,
-    )
+        spawn=default_spawn.replace(),
+    )'''
+    
+# Objects to pick
+for i in range(config.config['scene']['object']['n_assets']):
+    setattr(SceneCfg, f'object_{i}', RigidObjectCfg(
+        prim_path=f'/World/envs/env_.*/object_{i}',
+        spawn=sim_utils.MultiAssetSpawnerCfg(
+            assets_cfg=[
+                sim_utils.ConeCfg(
+                    radius=cone_radius,
+                    height=cone_height,
+                    visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.0, 1.0, 0.0), metallic=0.2),
+                ) for cone_radius in dim_range for cone_height in dim_range for _ in dim_range
+            ] + [
+                sim_utils.CuboidCfg(
+                    size=(x, y, z),
+                    visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(1.0, 0.0, 0.0), metallic=0.2),
+                ) for x in dim_range for y in dim_range for z in dim_range
+            ] + [
+                sim_utils.SphereCfg(
+                    radius=sphere_radius,
+                    visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.0, 0.0, 1.0), metallic=0.2),
+                ) for sphere_radius in dim_range for _ in dim_range for _ in dim_range
+            ],
+            random_choice=True,
+            rigid_props=RigidBodyPropertiesCfg(
+                rigid_body_enabled=True,
+                kinematic_enabled=False,
+                disable_gravity=False,
+            ),
+            collision_props=sim_utils.CollisionPropertiesCfg(),
+            mass_props=MassPropertiesCfg(mass=1.5),
+        ),
+        init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, 0.0)),
+    ))
+    
+'''for i in range(config.config['scene']['object']['n_assets']):
+    setattr(SceneCfg, f'object_{i}', RigidObjectCfg(
+        prim_path=f'/World/envs/env_.*/object_{i}',
+        spawn=default_object_spawn,
+        init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, 0.0)),
+    ))'''
