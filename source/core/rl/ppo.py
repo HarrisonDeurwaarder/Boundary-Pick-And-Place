@@ -5,6 +5,23 @@ import torch.nn.functional as F
 import source.utils.config as config
 
 
+def orthogonal_init(
+    layer: nn.Module, 
+    std=torch.sqrt(2), 
+    bias_const=0.0,
+) -> nn.Module:
+    '''
+    Orthogonally initializes the parameters of a layer
+    
+    Args:
+        layer (nn.Module): Layer
+        std (float): Std of weight sampling
+        bias_const (float): Initialized bias
+    '''
+    nn.init.orthogonal_(layer.weight, std)
+    nn.init.constant_(layer.bias, bias_const)
+
+
 class Actor(nn.Module):
     '''
     The policy network
@@ -12,11 +29,11 @@ class Actor(nn.Module):
     def __init__(self,) -> None:
         super().__init__()
         self.net: nn.Module = nn.Sequential(
-            nn.Linear(16, 128),
+            orthogonal_init(nn.Linear(16, 128)),
             nn.ELU(),
-            nn.Linear(128, 128),
+            orthogonal_init(nn.Linear(128, 128)),
             nn.ELU(),
-            nn.Linear(128, 40),
+            orthogonal_init(nn.Linear(128, 40)),
         )
     
     
@@ -75,7 +92,8 @@ class Actor(nn.Module):
         advantages: torch.Tensor = torch.zeros_like(rewards) # T+1
         for t in reversed(range(td_residuals.size(0) - 1)):
             advantages[t, ...] = td_residuals[t, ...] + config.config["rl"]["ppo"]["discount_factor"] * config.config["rl"]["ppo"]["gae_decay"] * (1 - dones[t, ...]) * advantages[t, ...]
-        
+        # Normalize advantages
+        advantages = (advantages - advantages.mean()) / (advantages.std(unbiased=False) + 1e-8)
         return advantages
         
     
@@ -123,11 +141,11 @@ class Critic(nn.Module):
     def __init__(self,) -> None:
         super().__init__()
         self.net: nn.Module = nn.Sequential(
-            nn.Linear(16, 128),
+            orthogonal_init(nn.Linear(16, 128)),
             nn.ELU(),
-            nn.Linear(128, 128),
+            orthogonal_init(nn.Linear(128, 128)),
             nn.ELU(),
-            nn.Linear(128, 1),
+            orthogonal_init(nn.Linear(128, 1)),
         )
     
     
@@ -174,7 +192,10 @@ class Critic(nn.Module):
         Returns:
             torch.Tensor: Value loss
         """
-        return F.mse_loss(
+        _mse: torch.Tensor = F.mse_loss(
             value_outs,
             (advantages + old_value_outs).detach(),
+        )
+        return torch.clip(
+            _mse, -config.config['rl']['ppo']['clipping_param'], config.config['rl']['ppo']['clipping_param'],
         )

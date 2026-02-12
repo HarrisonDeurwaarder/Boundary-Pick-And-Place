@@ -16,7 +16,7 @@ def main() -> None:
         repo_id='nvidia/PhysicalAI-SimReady-Warehouse-01',
         repo_type='dataset',
         local_dir=LOCAL_DATA_DIR,
-        allow_patterns=['*.usd', '*.usdc', '*.usda', '*.csv', '*.parquet'],
+        allow_patterns=['*.usd', '*.usdc', '*.usda', '*.png', '*.csv', '*.parquet'],
     )
     
     data = load_dataset(
