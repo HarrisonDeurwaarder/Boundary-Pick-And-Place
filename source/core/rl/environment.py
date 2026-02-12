@@ -56,7 +56,7 @@ class Env(DirectRLEnv):
         # Reward reporting
         self._episode_rewards = {
             key: torch.zeros((self.num_envs), device=self.sim.device)
-            for key in ["orient_alignment", "cube_height", "sparse_height_bonus", "ee_prismatic_vel", "cube_z_vel", "dist_penalty", "passive_penalty"]
+            for key in ["dist_term", "binary_contact_term", "contact_term", "ee_open_term", "object_height_term", "sparse_height_term", "velocity_term", "passive_term"]
         }
         
     
@@ -187,12 +187,15 @@ class Env(DirectRLEnv):
         """
         # Compute locations in world frame, then distance
         self.ee_pos: torch.Tensor = self.robot.data.body_pos_w[:, self.ee_frame_idx]
-        #self.cube_pos = self.cube.data.root_link_pose_w[:, 0:3]
         # Compute quats
         self.ee_quat: torch.Tensor = self.robot.data.body_quat_w[:, self.ee_frame_idx]
         
         self.ee_orient: torch.Tensor = F.normalize(quat_apply(self.ee_quat, self.local_forward,), dim=1,) # Quaternion applied to a unit vector should result in a unit vector, but floating-point errors can accumulate
         #self.targ_orient: torch.Tensor = F.normalize((self.cube_pos - self.ee_pos), dim=1,)
+        
+        for i in range(config.config['scene']['object']['n_assets']):
+            # Get positions
+            self.object_positions: list[torch.Tensor] = [getattr(self, f'object_{i}').data.root_link_pose_w[0:3]]
     
     
     def _get_observations(self,) -> dict[str, torch.Tensor]:
@@ -215,29 +218,33 @@ class Env(DirectRLEnv):
         Returns:
             torch.Tensor: Rewards
         """
-        # Compute orientation and target orientation of ee
-        orient_alignment: torch.Tensor = torch.zeros((self.num_envs,), device=self.sim.device)
-        # Extract height of cube
-        dist_from_plane: torch.Tensor = torch.zeros((self.num_envs,), device=self.sim.device)
-        # Apply sparse bonus if height exceeds threshold
-        is_above_threshold: torch.Tensor = torch.zeros((self.num_envs,), device=self.sim.device) >= config.config["env"]["rewards"]["sparse_height_bonus_threshold"]
-        # Get position of ee joint
-        ee_joint_vel: torch.Tensor = self.robot.data.joint_vel[:, 2]
-        # Extract z velocity of cube
-        cube_z_vel: torch.Tensor = torch.zeros((self.num_envs,), device=self.sim.device)
-        
-        dist: torch.Tensor = torch.zeros((self.num_envs,), device=self.sim.device)
         # Get episode length
         episode_length: torch.Tensor = self.episode_length_buf
+        # Get focal object
+        distances: torch.Tensor = torch.stack([torch.cdist(self.ee_pos, obj_pos) for obj_pos in self.object_position], dim=0,)
+        # Base rewards off the closest object
+        focal_indicies: torch.Tensor = torch.argmax(distances, dim=0,)
+        
+        distance: torch.Tensor = distances[focal_indicies, ...]
+        # Presumably, the object that is being contacted is also the closest for simplicity
+        is_contacting: torch.Tensor = self.contact_forces.data.net_forces_w > 1.0 # Counter noise
+        scaled_forces: torch.Tensor = self.contact_forces.data.net_forces_w / 100.0 # Scale forces for numerical stability
+        # Find the average prismatic position
+        ee_jointspace_pos: torch.Tensor = torch.mean(self.robot.data.joint_pos[:, 7:8], dim=1,)
+        object_height: torch.Tensor = self.object_positions[focal_indicies, 2]
+        is_above_height: torch.Tensor = object_height >= config.config['env']['reward']['sparse_height_threshold']
+        
+        mean_velocity: torch.Tensor = torch.mean(self.robot.data.joint_vel, dim=1,)
         
         rewards = {
-            "orient_alignment": config.config["env"]["rewards"]["orient_alignment_coef"] * orient_alignment,
-            "cube_height": config.config["env"]["rewards"]["cube_height_coef"] * dist_from_plane,
-            "sparse_height_bonus": config.config["env"]["rewards"]["sparse_height_bonus_coef"] * is_above_threshold,
-            "ee_prismatic_vel": config.config["env"]["rewards"]["ee_prismatic_vel_coef"] * ee_joint_vel,
-            "cube_z_vel": config.config["env"]["rewards"]["cube_z_vel_coef"] * cube_z_vel,
-            "dist_penalty": config.config["env"]["rewards"]["dist_penalty_coef"] * dist,
-            "passive_penalty": config.config["env"]["rewards"]["passive_penalty_coef"] * episode_length,
+            "dist_term":           config.config["env"]["reward"]["dist_coef"] * -distance, # Reduce distance from object
+            "binary_contact_term": config.config["env"]["reward"]["binary_contact_coef"] * is_contacting, # 1/0 Make contact with object
+            "contact_term":        config.config["env"]["reward"]["contact_coef"] * -scaled_forces, # Discourage forceful contacts
+            "ee_open_term":        config.config["env"]["reward"]["ee_open_coef"] * ee_jointspace_pos, # Keep the end-effector open
+            "object_height_term":  config.config["env"]["reward"]["object_height_coef"] * object_height, # Lift object
+            "sparse_height_term":  config.config["env"]["reward"]["sparse_height_coef"] * is_above_height, # Lift object past boundary ("success condition")
+            "velocity_term":       config.config["env"]["reward"]["velocity_coef"] * -mean_velocity, # Punish large actions
+            "passive_term":        config.config["env"]["reward"]["passive_coef"] * -episode_length, # Reduce episode length
         }
         # Save rewards for logging
         for key, reward in rewards.items():
