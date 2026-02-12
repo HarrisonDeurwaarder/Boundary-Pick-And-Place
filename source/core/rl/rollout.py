@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data.dataset import Dataset
 
-from utils.config import config
+import source.utils.config as config
 
 
 class Rollout(Dataset):
@@ -16,6 +16,7 @@ class Rollout(Dataset):
         device: torch.device,
     ) -> None:
         super().__init__()
+        self.device = device
         # Define collectables
         self.obs: torch.Tensor = initial_obs.unsqueeze(0).to(device=device)
         self.actions: torch.Tensor = torch.empty(0, device=device,)
@@ -91,6 +92,19 @@ class Rollout(Dataset):
         self.rewards = torch.concat((self.rewards, rewards.unsqueeze(0)), dim=0)
         self.value_outs = torch.concat((self.value_outs, value_out.unsqueeze(0)), dim=0)
         self.dones = torch.concat((self.dones, dones.unsqueeze(0)), dim=0)
+        
+        
+    def reset(self,) -> None:
+        """
+        Reset for a new evaluation cycle
+        """
+        self.obs: torch.Tensor = self.obs[-1, ...].unsqueeze(0).to(device=self.device)
+        self.actions: torch.Tensor = torch.empty(0, device=self.device,)
+        self.means: torch.Tensor = torch.empty(0, device=self.device,)
+        self.stds: torch.Tensor = torch.empty(0, device=self.device,)
+        self.rewards: torch.Tensor = torch.empty(0, device=self.device,)
+        self.value_outs: torch.Tensor = self.value_outs[-1, ...].unsqueeze(0).to(device=self.device)
+        self.dones: torch.Tensor = torch.empty(0, device=self.device,)
         
         
     def add_advantages(

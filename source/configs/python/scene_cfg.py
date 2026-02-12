@@ -48,7 +48,7 @@ default_object_spawn: sim_utils.MultiAssetSpawnerCfg = sim_utils.MultiAssetSpawn
     random_choice=True,
 )
 # Dimension range
-dim_range: list = torch.arange(0.01, 0.1, 0.02).tolist()
+dim_range: list = torch.arange(0.04, 0.1, 0.02).tolist()
 
 
 @configclass
@@ -77,7 +77,7 @@ class SceneCfg(InteractiveSceneCfg):
     robot.spawn.activate_contact_sensors = True
     
     # Sensors to be injected into scene
-    camera: CameraCfg = CameraCfg(
+    camera: TiledCameraCfg = TiledCameraCfg(
         prim_path='/World/envs/env_.*/Robot/panda_hand/front_cam',
         update_period=0.1,
         height=config.config['scene']['sensor']['camera']['camera_height'],
@@ -98,6 +98,7 @@ class SceneCfg(InteractiveSceneCfg):
         update_period=0.0,
         history_length=config.config['scene']['sensor']['force_history_length'],
         debug_vis=True,
+        filter_prim_paths_expr=['{ENV_REGEX_NS}/object_' + str(i) for i in range(config.config['scene']['object']['n_assets'])]
     )
     '''
     # Generate and place prims
@@ -146,7 +147,7 @@ for i in range(config.config['scene']['object']['n_assets']):
                 sim_utils.SphereCfg(
                     radius=sphere_radius,
                     visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.0, 0.0, 1.0), metallic=0.2),
-                ) for sphere_radius in dim_range for _ in dim_range for _ in dim_range
+                ) for sphere_radius in dim_range  for _ in dim_range for _ in dim_range
             ],
             random_choice=True,
             rigid_props=RigidBodyPropertiesCfg(

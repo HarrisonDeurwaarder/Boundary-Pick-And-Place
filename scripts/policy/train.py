@@ -1,195 +1,138 @@
-import numpy as np
 import torch
-from torch.distributions import Uniform
+from torch.optim import Adam
+from torch.utils.data import DataLoader
+from torch.distributions.normal import Normal
 
-from sim.launch_app import launch_app
+from source.sim.launch_app import launch_app
+from source.utils.config import load_config
 
-# Define and launch the app
-sim_app, args_cli = launch_app()
+sim_app, args_cli = launch_app(
+    enable_cameras=True,
+    flatcache=True, 
+    mgmt_api=True,
+)
+load_config("train")
 
 import isaaclab.sim as sim_utils
-from isaaclab.controllers import OperationalSpaceController
 from isaaclab.scene import InteractiveScene
 from isaaclab.assets import Articulation
-from isaaclab.sim import SimulationContext, SimulationCfg
 
-from source.sim.osc import update_states, get_osc, update_target, convert_to_task_frame
-from source.utils.logger import logging
-from source.configs.python.scene_cfg import SceneCfg
+from source.core.rl.environment import Env
+
+import source.utils.config as config
+from source.core.rl.ppo import Actor, Critic
+from source.core.rl.rollout import Rollout
 
 
-def run_sim(
-    sim: sim_utils.SimulationContext, 
-    scene: InteractiveScene,
-    pose_dist: Uniform,
-    wrench_dist: Uniform,
-    kp_dist: Uniform,
-) -> None:
-    '''
-    Runs the simulation
-    
-    Args:
-        sim (SimulationContext): The simulation context
-        scene (InteractiveScene): The interactive scene
-        pose_dist (torch.distributions.Uniform): The uniform distribution to randomly sample target pose
-        wrench_dist (torch.distributions.Uniform): The uniform distribution to randomly sample target wrench
-        kp_dist (torch.distributions.Uniform): The uniform distribution to randomly sample target stiffness
-    '''
-    # Get indices for joints
-    ee_frame_name = 'robot_leftfinger'
-    arm_joint_names = ['robot_link.*']
-    ee_frame_idx: int = scene['robot'].find_bodies(ee_frame_name)[0][0]
-    arm_joint_ids: np.ndarray = scene['robot'].find_bodies(arm_joint_names)[0]
-    
-    # Define the OSC
-    osc: OperationalSpaceController = get_osc(sim, scene,)
-    
-    sim_dt: float = sim.get_physics_dt()
-    robot: Articulation = scene['robot']
-    robot.update(dt=sim_dt)
-    
-    # Center of robot's joint ranges
-    joint_centers: torch.Tensor = torch.mean(robot.data.soft_joint_pos_limits[:, arm_joint_ids, :], dim=-1)
-    
-    # Get updated states
-    (
-        jacobian_b,
-        mass_mat,
-        gravity,
-        ee_pose_b,
-        ee_vel_b,
-        joint_pos,
-        joint_vel,
-    ) = update_states(
-        robot=robot,
-        ee_frame_idx=ee_frame_idx,
-        arm_joint_ids=arm_joint_ids,
-    )
-    
-    command: torch.Tensor = torch.zeros(scene.num_envs, osc.action_dim, device=sim.device)
-    # Generic target command, which can be pose, position, force, etc.
-    ee_target_pose_b: torch.Tensor = torch.zeros(scene.num_envs, 7, device=sim.device)
-
-    # Zero all joint efforts
-    zero_joint_efforts: torch.Tensor = torch.zeros(scene.num_envs, robot.num_joints, device=sim.device)
-    # The joint efforts touched by the OSC
-    joint_efforts: torch.Tensor = torch.zeros(scene.num_envs, len(arm_joint_ids), device=sim.device)
-
-    '''Simulation Loop'''
-    count: int = 0
-    while sim_app.is_running():
-        # Episode reset procedure
-        if count % 150 == 0:
-            # Reset joint pos to default
-            # Temporary for simplicity (will be randomized)
-            default_joint_pos: torch.Tensor = robot.data.default_joint_pos.clone()
-            default_joint_vel: torch.Tensor = robot.data.default_joint_vel.clone()
-            robot.write_joint_state_to_sim(default_joint_pos, default_joint_vel)
-            robot.set_joint_effort_target(zero_joint_efforts)
-            robot.write_data_to_sim()
-            robot.reset()
-            # Reset target pose
-            robot.update(sim_dt)
-            _, _, _, ee_pose_b, _, _, _, = update_states(
-                robot,
-                ee_frame_idx,
-                arm_joint_ids,
-            )
-            
-            # Sample the action
-            ee_pose_task: torch.Tensor = pose_dist.sample((7,)).to(sim.device)
-            ee_wrench_task: torch.Tensor = wrench_dist.sample((6,)).to(sim.device)
-            kp_task: torch.Tensor = kp_dist.sample((6,)).to(sim.device)
-            
-            ee_targets: torch.Tensor = torch.cat([ee_pose_task, ee_wrench_task, kp_task])
-            
-            # Updates the command and specialized position/quaternion orientation target
-            command, ee_target_pose_b = update_target(
-                    sim,
-                    scene,
-                    osc,
-                    ee_targets,
-                )
-            # Set the OSC command
-            osc.reset()
-            command, task_frame_pose_b = convert_to_task_frame(
-                osc,
-                command,
-                ee_target_pose_b,
-            )
-            osc.set_command(
-                command=command,
-                current_ee_pose_b=ee_pose_b,
-                current_task_frame_pose_b=task_frame_pose_b,
-            )
-        # Base execution; steps sim
-        else:
-            (
-                jacobian_b,
-                mass_mat,
-                gravity,
-                ee_pose_b, 
-                ee_vel_b,
-                joint_pos,
-                joint_vel
-            ) = update_states(
-                robot=robot,
-                ee_frame_idx=ee_frame_idx,
-                arm_joint_ids=arm_joint_ids,
-            )
-            # Get joint commands
-            joint_efforts: torch.Tensor = osc.compute(
-                jacobian_b=jacobian_b,
-                current_ee_pose_b=ee_pose_b,
-                current_ee_vel_b=ee_vel_b,
-                mass_matrix=mass_mat,
-                gravity=gravity,
-                current_joint_pos=joint_pos,
-                current_joint_vel=joint_vel,
-                nullspace_joint_pos_target=joint_centers,
-            )
-            # Apply efforts
-            robot.set_joint_effort_target(
-                joint_efforts, joint_ids=arm_joint_ids,
-            )
-            robot.write_data_to_sim()
-
-        # Perform step
-        sim.step(render=True)
-        # Update robot buffers
-        robot.update(sim_dt)
-        # Update scene buffers
-        scene.update(sim_dt)
-        # Update sim-time
-        count += 1
-        
-        
 def main() -> None:
-    '''
-    Main function to run the scene with OSC-calculated commands
-    '''
+    """
+    Main function ran on file execution
+    """
+    # Set the correct seed given the argument
+    torch.seed()
+    # Create the environment
+    env: Env = Env()
     # Load the simulation
-    sim_cfg: sim_utils.SimulationCfg = sim_utils.SimulationCfg(dt=1/120, render_interval=2, device=args_cli.device,)
-    sim: sim_utils.SimulationContext = sim_utils.SimulationContext(sim_cfg,)
-    # Design the scene and reset it
-    scene_cfg: SceneCfg = SceneCfg(
-        num_envs=9,
-        env_spacing=20.0,
-    )
-    scene: InteractiveScene = InteractiveScene(scene_cfg,)
+    sim: sim_utils.SimulationContext = sim_utils.SimulationContext(env.cfg.sim,)
     sim.reset()
-    # Log the completed setup
-    logging.info('Setup complete.')
+    # Extract the scene and robot
+    scene: InteractiveScene = env.scene
+    device: torch.device = env.cfg.sim.device
     
-    run_sim(
-        sim,
-        scene,
-        pose_dist=Uniform(-2.0, 2.0),
-        wrench_dist=Uniform(0.0, 20.0),
-        kp_dist=Uniform(0.0, 0.001)
+    # Create RL objects
+    policy: Actor = Actor().to(device=device)
+    value: Critic = Critic().to(device=device)
+    
+    optimizer: Adam = Adam([
+            {"params": policy.parameters(), "lr": config.config["rl"]["ppo"]["policy_lr"]},
+            {"params": value.parameters(), "lr": config.config["rl"]["ppo"]["value_lr"]},
+        ],
     )
     
+    """ Training Loop """
+    # Initial reset
+    obs: torch.Tensor = env.reset()[0]
+    rollout: Rollout = Rollout(
+        initial_obs=obs,
+        initial_value_out=value(obs,),
+        device=device,
+    )
+    # Epoch = num rollouts collected
+    for iteration in range(config.config["rl"]["iterations"]):
+        # Rollout collection phase
+        rollout.reset()
+        # Loop until rollout is at capacity
+        while len(rollout) < config.config["rl"]["rollout_length"]:
+            # Sample action from policy
+            mean, std = policy(obs,)
+            action: torch.Tensor = Normal(mean, std,).sample()
+            # Step in the environment
+            obs, rew, term, trunc, _, = env.step(action,)
+            # Add to rollout
+            rollout.add(
+                obs, action, mean, std, rew, value(obs,), term | trunc,
+            )
+            # Update the scene and rendering
+            scene.update(env.physics_dt,)
+            sim_app.update()
+        
+        # Batch rollout
+        dataloader: DataLoader = DataLoader(
+            dataset=rollout,
+            batch_size=config.config["rl"]["batch_size"],
+            shuffle=True,
+        )
+        
+        # Training phase
+        rews_h, dones_h, value_outs_h = rollout.get_horizon()
+        # Compute advantages
+        advantages: torch.Tensor = policy.gae(
+            rewards=rews_h,
+            dones=dones_h,
+            value_outs=value_outs_h,
+        )
+        rollout.add_advantages(advantages,)
+        
+        for _ in range(config.config["rl"]["epochs"]):
+            for _obs, actions, old_means, old_stds, advantages, old_value_outs in dataloader:
+                optimizer.zero_grad()
+                # Compute advantages and loss
+                value_outs: torch.Tensor = value(_obs,).squeeze(2)
+                means, stds = policy(_obs,)
+                policy_dist: Normal = Normal(means, stds)
+                
+                policy_objective: torch.Tensor = policy.policy_objective(
+                    policy_dist=policy_dist,
+                    old_policy_dist=Normal(old_means, old_stds),
+                    actions=actions,
+                    advantages=advantages,
+                )
+                value_loss: torch.Tensor = value.value_loss(
+                    value_outs=value_outs,
+                    old_value_outs=old_value_outs,
+                    advantages=advantages,
+                )
+                
+                # Backpropagate
+                loss: torch.Tensor = -policy_objective + config.config["rl"]["ppo"]["value_coef"] * value_loss - config.config["rl"]["ppo"]["entropy_coef"] * policy_dist.entropy().mean()
+                loss.backward()
+                optimizer.step()
+                # Continue scene interaction
+                scene.update(env.physics_dt,)
+                sim_app.update()
+                
+        print(
+            "\n========================================\n",
+            f"Iteration #{iteration+1}/{config.config['rl']['iterations']} Completed:",
+            f"\tMean Reward: {rollout.rewards.mean():.2f}",
+            f"\tMean Episode Length: {((1 - rollout.dones).sum()) / rollout.dones.sum():.2f}",
+            f"\tMean Advantage: {rollout.advantages.mean():.2f}",
+            f"\tMean Value Loss: {Critic.value_loss(value(rollout.obs[:-1],).squeeze(2), rollout.value_outs[:-1], rollout.advantages,).mean():.2f}",
+            f"\tMean Policy Objective: {Actor.policy_objective(Normal(*policy(rollout.obs[:-1])), Normal(rollout.means, rollout.stds), rollout.actions, rollout.advantages).mean():.2f}",
+            *(f"\tMean Rewards/{key}: {(rewards.mean() / config.config['rl']['rollout_length']):.2f}" for key, rewards in env._episode_rewards.items()),
+            sep="\n",
+        )
+        
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
-    sim_app.close()

@@ -12,11 +12,11 @@ class Actor(nn.Module):
     def __init__(self,) -> None:
         super().__init__()
         self.net: nn.Module = nn.Sequential(
-            nn.Linear(..., 128),
+            nn.Linear(16, 128),
             nn.ELU(),
             nn.Linear(128, 128),
             nn.ELU(),
-            nn.Linear(128, 18),
+            nn.Linear(128, 40),
         )
     
     
@@ -46,7 +46,7 @@ class Actor(nn.Module):
         return (
             mean,
             torch.exp(
-                torch.clamp(logvar, config["rl"]["ppo"]["log_std_min"], config["rl"]["ppo"]["log_std_max"])
+                torch.clamp(logvar, config.config["rl"]["ppo"]["log_std_min"], config.config["rl"]["ppo"]["log_std_max"])
             ),
         )
     
@@ -70,11 +70,11 @@ class Actor(nn.Module):
             torch.Tensor: GAE advantages
         '''
         # Compute TD residuals
-        td_residuals: torch.Tensor = rewards + config["rl"]["ppo"]["discount_factor"] * (1 - dones) * value_outs[1:, ...] - value_outs[:-1, ...]
+        td_residuals: torch.Tensor = rewards + config.config["rl"]["ppo"]["discount_factor"] * (1 - dones) * value_outs[1:, ...] - value_outs[:-1, ...]
         # Compute advantages
         advantages: torch.Tensor = torch.zeros_like(rewards) # T+1
         for t in reversed(range(td_residuals.size(0) - 1)):
-            advantages[t, ...] = td_residuals[t, ...] + config["rl"]["ppo"]["discount_factor"] * config["rl"]["ppo"]["gae_decay"] * (1 - dones[t, ...]) * advantages[t, ...]
+            advantages[t, ...] = td_residuals[t, ...] + config.config["rl"]["ppo"]["discount_factor"] * config.config["rl"]["ppo"]["gae_decay"] * (1 - dones[t, ...]) * advantages[t, ...]
         
         return advantages
         
@@ -109,8 +109,8 @@ class Actor(nn.Module):
             advantages * policy_ratio,
             advantages * torch.clip(
                 policy_ratio,
-                1 - config["rl"]["ppo"]["clipping_param"],
-                1 + config["rl"]["ppo"]["clipping_param"],
+                1 - config.config["rl"]["ppo"]["clipping_param"],
+                1 + config.config["rl"]["ppo"]["clipping_param"],
             ),
         )
         return policy_objecive.mean()
@@ -123,7 +123,7 @@ class Critic(nn.Module):
     def __init__(self,) -> None:
         super().__init__()
         self.net: nn.Module = nn.Sequential(
-            nn.Linear(..., 128),
+            nn.Linear(16, 128),
             nn.ELU(),
             nn.Linear(128, 128),
             nn.ELU(),

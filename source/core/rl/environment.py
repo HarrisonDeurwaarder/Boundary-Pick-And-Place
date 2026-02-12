@@ -40,7 +40,9 @@ class Env(DirectRLEnv):
         # Extract assets of interest from scene
         self.robot = self.scene['robot']
         self.contact_forces = self.scene['contact_forces']
-        self._define_markers()
+        for i in range(config.config['scene']['object']['n_assets']):
+            setattr(self, f'object_{i}', self.scene[f'object_{i}'])
+        #self._define_markers()
         # Extract robot joint IDs
         ee_frame_name = 'panda_leftfinger'
         arm_joint_names = ['panda_link.*']
@@ -86,7 +88,11 @@ class Env(DirectRLEnv):
         self,
         actions: torch.Tensor,
     ) -> tuple[dict[str, torch.Tensor], torch.Tensor, torch.Tensor, torch.Tensor, dict[str, Any]]:
-        self.actions = actions
+        self.actions = torch.cat((
+            actions, # OSC controls + EE joint position
+            actions[..., 19].unsqueeze(-1) # Copied EE joint position
+        ), dim=1,)
+        self.actions *= self.cfg.action_scale
         
         _, _, _, ee_pose_b, _, _, _, _ = update_states(
             robot=self.robot,
@@ -96,13 +102,12 @@ class Env(DirectRLEnv):
             arm_joint_ids=self.arm_joint_ids,
             contact_forces=self.contact_forces,
         )
-        
         # Updates the command and specialized position/quaternion orientation target
         command, ee_target_pose_b = update_target(
                 self.osc,
                 self.num_envs,
                 self.sim.device,
-                actions,
+                self.actions[..., :19],
             )
         # Set the OSC command
         command, task_frame_pose_b = convert_to_task_frame(
@@ -119,8 +124,8 @@ class Env(DirectRLEnv):
         self._compute_intermediate_values()
         
         # Place markers above ee
-        marker_pos: torch.Tensor = self.ee_pos
-        marker_pos[:, 2] += config.config["scene"]["marker"]["translation"]
+        '''marker_pos: torch.Tensor = self.ee_pos
+        marker_pos[:, 2] += config.config["scene"]["marker"]["translation"]'''
         # Compute marker orientation quat
         target_vect_orient: torch.Tensor = F.normalize(
             (self.ee_pos),
@@ -133,13 +138,13 @@ class Env(DirectRLEnv):
         ee_tool_quat = vect_to_quat(ee_tool_vect, ee_tool_axis)
         
         # Update markers
-        self.markers.visualize(
+        '''self.markers.visualize(
             translations=marker_pos.repeat((2, 1),)[0:self.num_envs, :],
             orientations=torch.concat(
                 (ee_tool_quat,),
                 dim=0,
             ),
-        )
+        )'''
     
     
     def _apply_action(self,) -> None:
@@ -193,9 +198,7 @@ class Env(DirectRLEnv):
         self.ee_orient: torch.Tensor = F.normalize(quat_apply(self.ee_quat, self.local_forward,), dim=1,) # Quaternion applied to a unit vector should result in a unit vector, but floating-point errors can accumulate
         #self.targ_orient: torch.Tensor = F.normalize((self.cube_pos - self.ee_pos), dim=1,)
         
-        for i in range(config.config['scene']['object']['n_assets']):
-            # Get positions
-            self.object_positions: list[torch.Tensor] = [getattr(self, f'object_{i}').data.root_link_pose_w[0:3]]
+        self.object_poses: torch.Tensor = torch.stack([getattr(self, f'object_{i}').data.root_link_pose_w for i in range(config.config['scene']['object']['n_assets'])], dim=1)
     
     
     def _get_observations(self,) -> dict[str, torch.Tensor]:
@@ -207,8 +210,7 @@ class Env(DirectRLEnv):
             ),
             dim=-1,
         )
-        obs_dict: dict[str, torch.Tensor] = {'policy': observations}
-        return obs_dict
+        return observations
     
     
     def _get_rewards(self,) -> torch.Tensor:
@@ -220,22 +222,28 @@ class Env(DirectRLEnv):
         """
         # Get episode length
         episode_length: torch.Tensor = self.episode_length_buf
-        # Get focal object
-        distances: torch.Tensor = torch.stack([torch.cdist(self.ee_pos, obj_pos) for obj_pos in self.object_position], dim=0,)
-        # Base rewards off the closest object
-        focal_indicies: torch.Tensor = torch.argmax(distances, dim=0,)
+        env_ids = torch.arange(self.num_envs, device=self.device)
         
-        distance: torch.Tensor = distances[focal_indicies, ...]
+        # Get focal object
+        distances: torch.Tensor = torch.sqrt(torch.sum(torch.square(
+            self.ee_pos.unsqueeze(1).repeat(1, config.config['scene']['object']['n_assets'], 1) - self.object_poses[..., 0:3],
+            ),
+            dim=2,
+        ))
+        # Base rewards off the closest object
+        distance, focal_indicies = torch.max(distances, dim=1,)
+        focal_indicies = focal_indicies
         # Presumably, the object that is being contacted is also the closest for simplicity
-        is_contacting: torch.Tensor = self.contact_forces.data.net_forces_w > 1.0 # Counter noise
-        scaled_forces: torch.Tensor = self.contact_forces.data.net_forces_w / 100.0 # Scale forces for numerical stability
+        forces: torch.Tensor = torch.norm(self.contact_forces.data.net_forces_w.squeeze(1), dim=1)
+        scaled_forces: torch.Tensor = forces / 100.0 # Scale forces for numerical stability
+        is_contacting: torch.Tensor = scaled_forces > 1.0 # Counter noise
         # Find the average prismatic position
         ee_jointspace_pos: torch.Tensor = torch.mean(self.robot.data.joint_pos[:, 7:8], dim=1,)
-        object_height: torch.Tensor = self.object_positions[focal_indicies, 2]
+        # Get object height
+        object_height: torch.Tensor = self.object_poses[env_ids, focal_indicies, 2]
         is_above_height: torch.Tensor = object_height >= config.config['env']['reward']['sparse_height_threshold']
         
         mean_velocity: torch.Tensor = torch.mean(self.robot.data.joint_vel, dim=1,)
-        
         rewards = {
             "dist_term":           config.config["env"]["reward"]["dist_coef"] * -distance, # Reduce distance from object
             "binary_contact_term": config.config["env"]["reward"]["binary_contact_coef"] * is_contacting, # 1/0 Make contact with object
