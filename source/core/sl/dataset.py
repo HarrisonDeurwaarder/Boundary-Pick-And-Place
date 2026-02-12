@@ -13,15 +13,14 @@ class NYUV2Dataset(Dataset):
         data = load_dataset('jagennath-hari/nyuv2')
         self.train_transform = v2.Compose([
             v2.ToImage(),
-            v2.Resize((100, 100),),
+            v2.Resize((64, 64),),
             v2.ToDtype(torch.float32, scale=True,),
             v2.GaussianNoise(sigma=0.005,),
         ])
         self.test_transform = v2.Compose([
             v2.ToImage(),
-            v2.Resize((100, 100),),
+            v2.Resize((64, 64),),
             v2.ToDtype(torch.float32, scale=True,),
-            v2.GaussianNoise(sigma=0.02,),
         ])
         # Extract training set
         self.train = data['train'].with_transform(self.apply_train_transforms,)

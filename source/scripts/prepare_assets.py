@@ -1,7 +1,7 @@
 import os
 from huggingface_hub import snapshot_download
 from datasets import load_dataset
-from source.utils.file_io import read_list
+from source.utils.file_io import read_list, write_list
 from source.utils.logger import logging
 from random import shuffle
 
@@ -15,6 +15,8 @@ from pxr import Usd, UsdPhysics, UsdGeom, Gf, PhysxSchema, Sdf
 def main() -> None:
     filtered_paths: list[str] = read_list('source/data/usd_paths.txt')
     shuffle(filtered_paths)
+    
+    rb_paths: list[str] = []
     
     logging.info('Starting USD conversion...')
     # Add rigidbody api
@@ -55,12 +57,20 @@ def main() -> None:
                 if prim.GetAttribute("physxMeshCollision:approximation").Get() != "convexHull":
                     prim.GetAttribute("physxMeshCollision:approximation").Set("convexHull")
         logging.info(f'Meshes created for ({usd_name})')
+        # Create new path
+        new_path = usd_path.replace('.usd', '_rb_modified.usd')
+        if new_path == usd_path:
+            print(f'Ignored USD ({usd_path})')
+            continue # Don't override default usds
         
+        rb_paths.append(new_path)
         # Export
         rb_stage = stage.Flatten()
-        rb_stage.Export(f'source/data/assets/RBProps/{usd_name}')
+        rb_stage.Export(new_path)
         
         logging.info(f'Successfully converted asset #{i+1} ({usd_name})')
+    
+    write_list(rb_paths, 'source/data/rb_usd_paths.txt')
         
 
 if __name__ == '__main__':

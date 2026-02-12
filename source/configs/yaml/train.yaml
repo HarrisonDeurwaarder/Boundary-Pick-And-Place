@@ -34,8 +34,8 @@ scene:
     color: [0.75, 0.75, 0.75]
   sensor:
     camera:
-      camera_height: 32 # [pixels]
-      camera_width: 32 # [pixels]
+      camera_height: 64 # [pixels]
+      camera_width: 64 # [pixels]
       focal_length: 50.0
       focus_distance: 400.0
       horizontal_aperture: 20.955
@@ -69,16 +69,16 @@ sl:
   batch_size: 32
   epochs: 20
   lr: 0.0003
-  mse_coef: 0.14
+  mse_coef: 1.2
   vit:
     dropout: 0.1
-    image_size: [100, 100] # [pixels]
-    patch_size: 10 # [pixels]
+    image_size: [64, 64] # [pixels]
+    patch_size: 8 # [pixels]
     encoder:
-      n_head: 10
+      n_head: 8
       dim_feedforward_encoder: 1024
       num_layers: 6
-      dim_feedforward_conv: 512
+      dim_feedforward_conv: 256
       kernel_size: 3
 
 event:

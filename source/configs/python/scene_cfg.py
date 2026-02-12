@@ -21,9 +21,8 @@ import source.utils.config as config
 from source.utils.file_io import read_list
 
 
-usd_dir: Path = Path('source/data/assets/RBProps')
-usd_files: list[str] = [str(f) for f in usd_dir.rglob('*.usd')]
-usd_assets: list[UsdFileCfg] = [sim_utils.UsdFileCfg(usd_path=path,) for path in usd_files[:50]]
+rb_usd_files: list[str] = read_list('source/data/rb_usd_paths.txt')
+usd_assets: list[UsdFileCfg] = [sim_utils.UsdFileCfg(usd_path=path,) for path in rb_usd_files[:50]]
 
 
 thickness: float = config.config['scene']['room']['wall_thickness']
@@ -128,7 +127,7 @@ class SceneCfg(InteractiveSceneCfg):
     )'''
     
 # Objects to pick
-for i in range(config.config['scene']['object']['n_assets']):
+'''for i in range(config.config['scene']['object']['n_assets']):
     setattr(SceneCfg, f'object_{i}', RigidObjectCfg(
         prim_path=f'/World/envs/env_.*/object_{i}',
         spawn=sim_utils.MultiAssetSpawnerCfg(
@@ -160,10 +159,10 @@ for i in range(config.config['scene']['object']['n_assets']):
         ),
         init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, 0.0)),
     ))
-    
-'''for i in range(config.config['scene']['object']['n_assets']):
+    '''
+for i in range(config.config['scene']['object']['n_assets']):
     setattr(SceneCfg, f'object_{i}', RigidObjectCfg(
         prim_path=f'/World/envs/env_.*/object_{i}',
         spawn=default_object_spawn,
         init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, 0.0)),
-    ))'''
+    ))

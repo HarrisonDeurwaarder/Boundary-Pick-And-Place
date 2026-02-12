@@ -2,12 +2,14 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+import numpy as np
+
 import source.utils.config as config
 
 
 def orthogonal_init(
     layer: nn.Module, 
-    std=torch.sqrt(2), 
+    std=np.sqrt(2), 
     bias_const=0.0,
 ) -> nn.Module:
     '''
@@ -20,6 +22,7 @@ def orthogonal_init(
     '''
     nn.init.orthogonal_(layer.weight, std)
     nn.init.constant_(layer.bias, bias_const)
+    return layer
 
 
 class Actor(nn.Module):

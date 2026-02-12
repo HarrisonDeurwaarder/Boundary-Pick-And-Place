@@ -1,10 +1,12 @@
 import torch
 
 from source.sim.launch_app import launch_app
+from source.utils.config import load_config
 
 sim_app, args_cli = launch_app(
     enable_cameras=True,
 )
+load_config('train')
     
 from source.configs.python.scene_cfg import SceneCfg
 from source.utils.logger import logging
