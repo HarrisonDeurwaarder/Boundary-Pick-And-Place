@@ -44,6 +44,9 @@ class Actor(nn.Module):
         self,
         obs: torch.Tensor,
     ) -> torch.Tensor:
+        if not torch.isfinite(obs).all():
+            idx = (~torch.isfinite(obs)).nonzero(as_tuple=False)[0]
+            print('bad obs at', tuple(idx.tolist(), '=', obs[tuple(idx.tolist())]).item())
         return super().__call__(obs)
     
     
@@ -64,7 +67,7 @@ class Actor(nn.Module):
         mean, logvar = torch.chunk(self.net(obs), chunks=2, dim=-1)
         # Return distributions
         return (
-            mean,
+            torch.clamp(mean, config.config['rl']['ppo']['mean_min'], config.config['rl']['ppo']['mean_max']),
             torch.exp(
                 torch.clamp(logvar, config.config["rl"]["ppo"]["log_std_min"], config.config["rl"]["ppo"]["log_std_max"])
             ),
@@ -96,7 +99,7 @@ class Actor(nn.Module):
         for t in reversed(range(td_residuals.size(0) - 1)):
             advantages[t, ...] = td_residuals[t, ...] + config.config["rl"]["ppo"]["discount_factor"] * config.config["rl"]["ppo"]["gae_decay"] * (1 - dones[t, ...]) * advantages[t, ...]
         # Normalize advantages
-        advantages = (advantages - advantages.mean()) / (advantages.std(unbiased=False) + 1e-8)
+        #advantages = (advantages - advantages.mean()) / (advantages.std(unbiased=False) + 1e-8)
         return advantages
         
     
@@ -199,6 +202,4 @@ class Critic(nn.Module):
             value_outs,
             (advantages + old_value_outs).detach(),
         )
-        return torch.clip(
-            _mse, -config.config['rl']['ppo']['clipping_param'], config.config['rl']['ppo']['clipping_param'],
-        )
+        return _mse

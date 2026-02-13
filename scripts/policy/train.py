@@ -3,6 +3,8 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader
 from torch.distributions.normal import Normal
 
+from time import time
+
 from source.sim.launch_app import launch_app
 from source.utils.config import load_config
 
@@ -10,6 +12,7 @@ sim_app, args_cli = launch_app(
     enable_cameras=True,
     flatcache=True, 
     mgmt_api=True,
+    #headless=True,
 )
 load_config("train")
 
@@ -59,6 +62,7 @@ def main() -> None:
     )
     # Epoch = num rollouts collected
     for iteration in range(config.config["rl"]["iterations"]):
+        start = time()
         # Rollout collection phase
         rollout.reset()
         # Loop until rollout is at capacity
@@ -127,11 +131,13 @@ def main() -> None:
             f"\tMean Reward: {rollout.rewards.mean():.2f}",
             f"\tMean Episode Length: {((1 - rollout.dones).sum()) / rollout.dones.sum():.2f}",
             f"\tMean Advantage: {rollout.advantages.mean():.2f}",
+            f"\tSTD Advantage: {rollout.advantages.std():.2f}",
             f"\tMean Value Loss: {Critic.value_loss(value(rollout.obs[:-1],).squeeze(2), rollout.value_outs[:-1], rollout.advantages,).mean():.2f}",
             f"\tMean Policy Objective: {Actor.policy_objective(Normal(*policy(rollout.obs[:-1])), Normal(rollout.means, rollout.stds), rollout.actions, rollout.advantages).mean():.2f}",
             *(f"\tMean Rewards/{key}: {(rewards.mean() / config.config['rl']['rollout_length']):.2f}" for key, rewards in env._episode_rewards.items()),
             sep="\n",
         )
+        print(f'\nETA: {((time() - start) * (config.config["rl"]["iterations"] - iteration - 1) / (3600.0)):.2f} hours')
         
 
 if __name__ == "__main__":

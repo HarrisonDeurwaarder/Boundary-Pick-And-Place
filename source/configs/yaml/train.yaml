@@ -1,25 +1,26 @@
 env:
-  decimation: 1
+  decimation: 2
   episode_length: 5.0 # [sec]
-  action_scale: 7.0
+  action_scale: 2.5
   action_space: 7
   angle_obs_space: 7
   velocity_obs_space: 7
   state_space: 0
   reward:
     sparse_height_threshold: 0.5
-    dist_coef: 0.1
-    binary_contact_coef: 0.3
-    contact_coef: 0.02
-    ee_open_coef: 0.05
-    object_height_coef: 1.0
-    sparse_height_coef: 20.0
-    velocity_coef: 0.01
+    dist_coef: 1.5
+    rot_coef: 1.5
+    binary_contact_coef: 1.0
+    contact_coef: 0.0
+    finger_dist_coef: 0.02
+    object_height_coef: 0.0
+    sparse_height_coef: 0.0
+    velocity_coef: 0.03
     passive_coef: 0.0
 
 scene:
-  num_envs: 128
-  env_spacing: 10.0
+  num_envs: 1024
+  env_spacing: 2.5
   replicate_physics: False
   clone_in_fabric: False
   dt: 0.01
@@ -45,16 +46,18 @@ scene:
     translation: 0.4
     scale: [0.2, 0.2, 0.6]
   object:
-    n_assets: 10
+    n_assets: 1
     distance_range_from_origin: [0.1, 0.8]
     vertical_placement: 0.1
 
 rl:
   epochs: 8
-  iterations: 500
+  iterations: 200
   batch_size: 32
-  rollout_length: 512
+  rollout_length: 256
   ppo:
+    mean_min: -10.0
+    mean_max: 10.0
     log_std_min: -20.0
     log_std_max: 2.0
     policy_lr: 0.001
@@ -105,10 +108,3 @@ event:
   physics:
     gravity:
       gravity_distribution_params: [[0.0, 0.0, 0.0], [0.0, 0.0, 0.4]]
-      
-reward:
-  scale_grasp: 1.0
-  scale_duration: -0.1
-  scale_distance: 0.1
-  scale_drop: -1.5
-  scale_contact: 0.5

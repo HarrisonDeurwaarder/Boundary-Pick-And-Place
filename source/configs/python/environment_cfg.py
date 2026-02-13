@@ -38,12 +38,5 @@ class EnvCfg(DirectRLEnvCfg):
         clone_in_fabric=config.config['scene']['clone_in_fabric'],
     )
     
-    # Reward scale config
-    rew_scale_grasp: float = config.config['reward']['scale_grasp']
-    rew_scale_duration: float = config.config['reward']['scale_duration']
-    rew_scale_distance: float = config.config['reward']['scale_distance']
-    rew_scale_drop: float = config.config['reward']['scale_drop']
-    rew_scale_contact: float = config.config['reward']['scale_contact']
-    
     # Event config
     events: EventCfg = EventCfg()

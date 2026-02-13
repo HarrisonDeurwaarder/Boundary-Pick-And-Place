@@ -18,6 +18,7 @@ from isaaclab.utils.math import quat_apply
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 
 from isaacsim.core.utils.torch.transformations import tf_combine, tf_inverse, tf_vector
+from isaaclab.sim.utils.stage import get_current_stage
 from pxr import UsdGeom
 
 from source.configs.python.scene_cfg import SceneCfg
@@ -47,32 +48,57 @@ class Env(DirectRLEnv):
         for i in range(config.config['scene']['object']['n_assets']):
             setattr(self, f'object_{i}', self.scene[f'object_{i}'])
         #self._define_markers()
-        # Extract robot joint IDs
-        ee_frame_name = 'panda_leftfinger'
-        arm_joint_names = ['panda_link.*']
-        self.ee_frame_idx: int = self.robot.find_bodies(ee_frame_name)[0][0]
-        self.arm_joint_ids: np.ndarray = self.robot.find_bodies(arm_joint_names)[0]
-        # Local forward for computing orientation quats
-        self.local_forward: torch.Tensor = torch.tensor([1.0, 0.0, 0.0], device=self.sim.device,).repeat((self.num_envs, 1),)
+        
+        self.hand_link_idx = self.robot.find_bodies('panda_link7')[0][0]
+        self.lf_link_idx = self.robot.find_bodies('panda_leftfinger')[0][0]
+        self.rf_link_idx = self.robot.find_bodies('panda_rightfinger')[0][0]
+        self.arm_joint_ids = self.robot.find_bodies(['panda_link.*'])[0]
         # Center of robot's joint ranges
         self.joint_centers: torch.Tensor = torch.mean(self.robot.data.soft_joint_pos_limits[:, self.arm_joint_ids, :], dim=-1)
         
-        self.robot_ee_pos: torch.Tensor = torch.zeros((self.num_envs, 3,))
-        self.robot_ee_rot: torch.Tensor = torch.zeros((self.num_envs, 4,))
-        self.object_pos: torch.Tensor = torch.zeros((self.num_envs, 3,))
-        self.object_rot: torch.Tensor = torch.zeros((self.num_envs, 4,))
         
-        self.robot_up_axis: torch.Tensor = torch.tensor([0.0, 0.0, 1.0]).repeat((self.num_envs, 1,))
-        self.robot_for_axis: torch.Tensor = torch.tensor([1.0, 0.0, 0.0]).repeat((self.num_envs, 1,))
-        self.object_up_axis: torch.Tensor = torch.tensor([0.0, 0.0, 1.0]).repeat((self.num_envs, 1,))
-        self.object_in_axis: torch.Tensor = torch.tensor([-1.0, 0.0, 0.0]).repeat((self.num_envs, 1,))
+        stage = get_current_stage()
+        hand_pose = self.get_env_local_pose(
+            self.scene.env_origins[0],
+            UsdGeom.Xformable(stage.GetPrimAtPath("/World/envs/env_0/Robot/panda_link7")),
+        )
+        lf_pose = self.get_env_local_pose(
+            self.scene.env_origins[0],
+            UsdGeom.Xformable(stage.GetPrimAtPath("/World/envs/env_0/Robot/panda_leftfinger")),
+        )
+        rf_pose = self.get_env_local_pose(
+            self.scene.env_origins[0],
+            UsdGeom.Xformable(stage.GetPrimAtPath("/World/envs/env_0/Robot/panda_rightfinger")),
+        )
+        
+        finger_pose = torch.zeros(7, device=self.device)
+        finger_pose[0:3] = (lf_pose[0:3] + rf_pose[0:3]) / 2.0
+        finger_pose[3:7] = lf_pose[3:7]
+        hand_pose_inv_rot, hand_pose_inv_pos = tf_inverse(hand_pose[3:7], hand_pose[0:3])
+        robot_local_ee_pose_rot, robot_local_pose_pos = tf_combine(
+            hand_pose_inv_rot, hand_pose_inv_pos, finger_pose[3:7], finger_pose[0:3],
+        )
+        
+        robot_local_pose_pos += torch.tensor([0.0, 0.04, 0.0], device=self.sim.device)
+        self.robot_local_ee_pos = robot_local_pose_pos.repeat((self.num_envs, 1))
+        self.robot_local_ee_rot = robot_local_ee_pose_rot.repeat((self.num_envs, 1))
+        
+        self.robot_ee_pos: torch.Tensor = torch.zeros((self.num_envs, 3,), device=self.sim.device)
+        self.robot_ee_rot: torch.Tensor = torch.zeros((self.num_envs, 4,), device=self.sim.device)
+        self.object_pos: torch.Tensor = torch.zeros((self.num_envs, config.config['scene']['object']['n_assets'], 3,), device=self.sim.device)
+        self.object_rot: torch.Tensor = torch.zeros((self.num_envs, config.config['scene']['object']['n_assets'], 4,), device=self.sim.device)
+        
+        self.robot_up_axis: torch.Tensor = torch.tensor([0.0, 1.0, 0.0], device=self.sim.device).repeat((self.num_envs, 1,))
+        self.robot_for_axis: torch.Tensor = torch.tensor([0.0, 0.0, 1.0], device=self.sim.device).repeat((self.num_envs, 1,))
+        self.object_up_axis: torch.Tensor = torch.tensor([0.0, 0.0, 1.0], device=self.sim.device).repeat((self.num_envs, 1,))
+        self.object_in_axis: torch.Tensor = torch.tensor([-1.0, 0.0, 0.0], device=self.sim.device).repeat((self.num_envs, 1,))
         
         # Define the OSC for taskspace action handling
         self.osc = get_osc(self.num_envs, self.sim.device,)
         # Reward reporting
         self._episode_rewards = {
             key: torch.zeros((self.num_envs), device=self.sim.device)
-            for key in ["dist_term", "binary_contact_term", "contact_term", "ee_open_term", "object_height_term", "sparse_height_term", "velocity_term", "passive_term"]
+            for key in ["dist_term", "rot_term", "binary_contact_term", "contact_term", "finger_dist_term", "object_height_term", "sparse_height_term", "velocity_term", "passive_term"]
         }
         
     
@@ -112,7 +138,7 @@ class Env(DirectRLEnv):
             robot=self.robot,
             sim_dt=self.sim.get_physics_dt(),
             num_envs=self.num_envs,
-            ee_frame_idx=self.ee_frame_idx,
+            ee_frame_idx=self.lf_link_idx,
             arm_joint_ids=self.arm_joint_ids,
             contact_forces=self.contact_forces,
         )
@@ -141,15 +167,15 @@ class Env(DirectRLEnv):
         '''marker_pos: torch.Tensor = self.ee_pos
         marker_pos[:, 2] += config.config["scene"]["marker"]["translation"]'''
         # Compute marker orientation quat
-        target_vect_orient: torch.Tensor = F.normalize(
+        '''target_vect_orient: torch.Tensor = F.normalize(
             (self.ee_pos),
             dim=1
-        )
-        target_quat: torch.Tensor = vect_to_quat(target_vect_orient, self.local_forward)
+        )'''
+        #target_quat: torch.Tensor = vect_to_quat(target_vect_orient, self.local_forward)
         
-        ee_tool_axis = torch.tensor([0.0, 0.0, 1.0], device=self.sim.device).repeat((self.num_envs, 1))
+        '''ee_tool_axis = torch.tensor([0.0, 0.0, 1.0], device=self.sim.device).repeat((self.num_envs, 1))
         ee_tool_vect = quat_apply(self.ee_quat, ee_tool_axis)
-        ee_tool_quat = vect_to_quat(ee_tool_vect, ee_tool_axis)
+        #ee_tool_quat = vect_to_quat(ee_tool_vect, ee_tool_axis)'''
         
         # Update markers
         '''self.markers.visualize(
@@ -175,7 +201,7 @@ class Env(DirectRLEnv):
             robot=self.robot,
             sim_dt=self.sim.get_physics_dt(),
             num_envs=self.num_envs,
-            ee_frame_idx=self.ee_frame_idx,
+            ee_frame_idx=self.lf_link_idx,
             arm_joint_ids=self.arm_joint_ids,
             contact_forces=self.contact_forces,
         )
@@ -200,16 +226,36 @@ class Env(DirectRLEnv):
         self.robot.write_data_to_sim()
         
         
-    def _compute_intermediate_values(self,) -> None:
+    def _compute_intermediate_values(
+        self,
+        env_ids: torch.Tensor | None = None,
+    ) -> None:
         """
         Computes values needed for rewards and marker visualization
-        """
-        # Compute locations in world frame, then distance
-        self.ee_pos: torch.Tensor = self.robot.data.body_pos_w[:, self.ee_frame_idx]
-        # Compute quats
-        self.ee_quat: torch.Tensor = self.robot.data.body_quat_w[:, self.ee_frame_idx]
         
-        self.ee_orient: torch.Tensor = F.normalize(quat_apply(self.ee_quat, self.local_forward,), dim=1,) # Quaternion applied to a unit vector should result in a unit vector, but floating-point errors can accumulate
+        Args:
+            env_ids (torch.Tensor): Environment ids
+        """
+        # Resolve ids
+        if env_ids is None:
+            env_ids = self.robot._ALL_INDICES
+            
+        hand_pos = self.robot.data.body_pos_w[env_ids, self.hand_link_idx]
+        hand_rot = self.robot.data.body_quat_w[env_ids, self.hand_link_idx]
+        
+        self.robot_ee_rot[env_ids], self.robot_ee_pos[env_ids] = tf_combine(
+            hand_rot, hand_pos, self.robot_local_ee_rot[env_ids], self.robot_local_ee_pos[env_ids],
+        )
+        self.object_pos = torch.stack(
+            [getattr(self, f'object_{i}').data.body_pos_w[env_ids] for i in range(config.config['scene']['object']['n_assets'])],
+            dim=1,
+        ).squeeze(-2)
+        self.object_rot = torch.stack(
+            [getattr(self, f'object_{i}').data.body_quat_w[env_ids] for i in range(config.config['scene']['object']['n_assets'])],
+            dim=1,
+        ).squeeze(-2)
+        
+        #self.ee_orient: torch.Tensor = F.normalize(quat_apply(self.ee_quat, self.local_forward,), dim=1,) # Quaternion applied to a unit vector should result in a unit vector, but floating-point errors can accumulate
         #self.targ_orient: torch.Tensor = F.normalize((self.cube_pos - self.ee_pos), dim=1,)
         
         self.object_poses: torch.Tensor = torch.stack([getattr(self, f'object_{i}').data.root_link_pose_w for i in range(config.config['scene']['object']['n_assets'])], dim=1)
@@ -237,18 +283,17 @@ class Env(DirectRLEnv):
         # Get episode length
         episode_length: torch.Tensor = self.episode_length_buf
         env_ids = torch.arange(self.num_envs, device=self.device)
-        
         # Get focal object
-        distances: torch.Tensor = torch.norm(self.robot_ee_pos, self.object_pos)
+        distances: torch.Tensor = torch.norm(self.robot_ee_pos.unsqueeze(1).repeat(1, config.config['scene']['object']['n_assets'], 1) - self.object_pos, dim=2)
         dist_terms: torch.Tensor = 1.0 / (1.0 + distances**2)
         dist_terms = torch.where(distances <= 0.02, dist_terms * 2, dist_terms)
         # Base rewards off the closest object
-        dist_term, focal_indicies = torch.min(dist_terms, dim=1,)
+        dist_term, focal_indicies = torch.max(dist_terms, dim=1,)
         
         # Encourage ee alignment to object
-        axis1 = tf_vector(self.robot_ee_rot[env_ids, focal_indicies], self.robot_for_axis)
-        axis2 = tf_vector(self.object_rot[env_ids, focal_indicies], self.object_for_axis)
-        axis3 = tf_vector(self.robot_ee_rot[env_ids, focal_indicies], self.robot_up_axis)
+        axis1 = tf_vector(self.robot_ee_rot[env_ids], self.robot_for_axis)
+        axis2 = tf_vector(self.object_rot[env_ids, focal_indicies], self.object_in_axis)
+        axis3 = tf_vector(self.robot_ee_rot[env_ids], self.robot_up_axis)
         axis4 = tf_vector(self.object_rot[env_ids, focal_indicies], self.object_up_axis)
         
         dot1 = torch.bmm(axis1.view(self.num_envs, 1, 3), axis2.view(self.num_envs, 3, 1)).squeeze(-1).squeeze(-1)
@@ -259,11 +304,11 @@ class Env(DirectRLEnv):
         robot_lf_pos: torch.Tensor = self.robot.data.body_pos_w[:, self.lf_link_idx]
         robot_rf_pos: torch.Tensor = self.robot.data.body_pos_w[:, self.rf_link_idx]
         
-        lf_dist: torch.Tensor = robot_lf_pos[:, 2] - self.object_pos[:, 2]
-        rf_dist: torch.Tensor = self.object_pos[:, 2] - robot_rf_pos[:, 2]
+        lf_dist: torch.Tensor = robot_lf_pos[:, 2] - self.object_pos[env_ids, focal_indicies, 2]
+        rf_dist: torch.Tensor = robot_rf_pos[:, 2] - self.object_pos[env_ids, focal_indicies, 2]
         finger_dist_term: torch.Tensor = torch.zeros_like(lf_dist)
         finger_dist_term += torch.where(lf_dist < 0, lf_dist, torch.zeros_like(lf_dist))
-        finger_dist_term += torch.where(rf_dist < 0, lf_dist, torch.zeros_like(rf_dist))
+        finger_dist_term += torch.where(rf_dist < 0, rf_dist, torch.zeros_like(rf_dist))
         
         # Presumably, the object that is being contacted is also the closest for simplicity
         forces: torch.Tensor = torch.norm(self.contact_forces.data.net_forces_w.squeeze(1), dim=1)
@@ -276,16 +321,17 @@ class Env(DirectRLEnv):
         object_height: torch.Tensor = self.object_poses[env_ids, focal_indicies, 2]
         is_above_height: torch.Tensor = object_height >= config.config['env']['reward']['sparse_height_threshold']
         
-        mean_velocity: torch.Tensor = torch.mean(self.robot.data.joint_vel, dim=1,)
+        mean_velocity: torch.Tensor = torch.mean(torch.abs(self.robot.data.joint_vel), dim=1,)
         rewards = {
-            "dist_term":           config.config["env"]["reward"]["dist_coef"] * dist_term, # Reduce distance from object
-            "binary_contact_term": config.config["env"]["reward"]["binary_contact_coef"] * is_contacting, # 1/0 Make contact with object
-            "contact_term":        config.config["env"]["reward"]["contact_coef"] * -scaled_forces, # Discourage forceful contacts
-            "ee_open_term":        config.config["env"]["reward"]["ee_open_coef"] * ee_jointspace_pos, # Keep the end-effector open
-            "object_height_term":  config.config["env"]["reward"]["object_height_coef"] * object_height, # Lift object
-            "sparse_height_term":  config.config["env"]["reward"]["sparse_height_coef"] * is_above_height, # Lift object past boundary ("success condition")
-            "velocity_term":       config.config["env"]["reward"]["velocity_coef"] * -mean_velocity, # Punish large actions
-            "passive_term":        config.config["env"]["reward"]["passive_coef"] * -episode_length, # Reduce episode length
+            "dist_term":              config.config["env"]["reward"]["dist_coef"] * dist_term, # Reduce distance from object
+            "rot_term":               config.config['env']['reward']['rot_coef'] * rot_term,
+            "binary_contact_term":    config.config["env"]["reward"]["binary_contact_coef"] * is_contacting, # 1/0 Make contact with object
+            "contact_term":           config.config["env"]["reward"]["contact_coef"] * -scaled_forces, # Discourage forceful contacts
+            "finger_dist_term":       config.config['env']['reward']['finger_dist_coef'] * finger_dist_term,
+            "object_height_term":     config.config["env"]["reward"]["object_height_coef"] * object_height, # Lift object
+            "sparse_height_term":     config.config["env"]["reward"]["sparse_height_coef"] * is_above_height, # Lift object past boundary ("success condition")
+            "velocity_term":          config.config["env"]["reward"]["velocity_coef"] * -mean_velocity, # Punish large actions
+            #"passive_term":           config.config["env"]["reward"]["passive_coef"] * -episode_length, # Reduce episode length
         }
         # Save rewards for logging
         for key, reward in rewards.items():
@@ -327,7 +373,11 @@ class Env(DirectRLEnv):
         self.osc.reset()
         
     
-    def get_env_local_pose(env_pos: torch.Tensor, xformable: UsdGeom.Xformable,) -> torch.Tensor:
+    def get_env_local_pose(
+        self,
+        env_pos: torch.Tensor, 
+        xformable: UsdGeom.Xformable,
+    ) -> torch.Tensor:
         '''
         Compute pose in env-local coordinates
         
@@ -345,12 +395,12 @@ class Env(DirectRLEnv):
         # Compute env-frame poses
         pos: torch.Tensor = torch.tensor([
             world_pos[0] - env_pos[0], world_pos[1] - env_pos[1], world_pos[2] - env_pos[2],
-        ])
+        ], device=self.sim.device)
         quat: torch.Tensor = torch.tensor([
             world_quat.real, world_quat.imaginary[0], world_quat.imaginary[1], world_quat.imaginary[2],
-        ])
+        ], device=self.sim.device)
         return torch.cat((
                 pos, quat,
             ),
             dim=0,
-        ).transpose(0, 1) # (E, pose)
+        )

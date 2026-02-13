@@ -76,7 +76,7 @@ class SceneCfg(InteractiveSceneCfg):
     robot.spawn.activate_contact_sensors = True
     
     # Sensors to be injected into scene
-    camera: TiledCameraCfg = TiledCameraCfg(
+    '''camera: TiledCameraCfg = TiledCameraCfg(
         prim_path='/World/envs/env_.*/Robot/panda_hand/front_cam',
         update_period=0.1,
         height=config.config['scene']['sensor']['camera']['camera_height'],
@@ -91,12 +91,12 @@ class SceneCfg(InteractiveSceneCfg):
         offset=CameraCfg.OffsetCfg(
             convention='ros'
         ),
-    )
+    )'''
     contact_forces: ContactSensorCfg = ContactSensorCfg(
         prim_path='/World/envs/env_.*/Robot/panda_hand',
         update_period=0.0,
         history_length=config.config['scene']['sensor']['force_history_length'],
-        debug_vis=True,
+        debug_vis=False,
         filter_prim_paths_expr=['{ENV_REGEX_NS}/object_' + str(i) for i in range(config.config['scene']['object']['n_assets'])]
     )
     '''
@@ -158,11 +158,28 @@ class SceneCfg(InteractiveSceneCfg):
             mass_props=MassPropertiesCfg(mass=1.5),
         ),
         init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, 0.0)),
-    ))
-    '''
+    ))'''
+    
 for i in range(config.config['scene']['object']['n_assets']):
+    setattr(SceneCfg, f'object_{i}', RigidObjectCfg(
+        prim_path=f'/World/envs/env_.*/object_{i}',
+        spawn=sim_utils.CuboidCfg(
+            size=(0.06, 0.06, 0.06),
+            visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(1.0, 0.0, 0.0), metallic=0.2),
+            rigid_props=RigidBodyPropertiesCfg(
+                rigid_body_enabled=True,
+                kinematic_enabled=False,
+                disable_gravity=False,
+            ),
+            collision_props=sim_utils.CollisionPropertiesCfg(),
+            mass_props=MassPropertiesCfg(mass=1.5),
+        ),
+        init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, 0.0)),
+    ))
+    
+'''for i in range(config.config['scene']['object']['n_assets']):
     setattr(SceneCfg, f'object_{i}', RigidObjectCfg(
         prim_path=f'/World/envs/env_.*/object_{i}',
         spawn=default_object_spawn,
         init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, 0.0)),
-    ))
+    ))'''

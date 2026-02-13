@@ -23,7 +23,7 @@ class EventCfg:
     Event config. Handles most domain randomization
     '''
     
-    ### ROBOT RANDOMIZATION ###
+    '''### ROBOT RANDOMIZATION ###
     robot_phys_material: EventTermCfg = EventTermCfg(
         func=mdp.randomize_rigid_body_material,
         mode='reset',
@@ -95,7 +95,7 @@ class EventCfg:
             'operation': 'add',
             'distribution': 'gaussian',
         },
-    )
+    )'''
     
     '''### OBJECT & ROOM RANDOMIZATION ###
     room_scale: EventTermCfg = EventTermCfg(

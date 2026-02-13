@@ -239,7 +239,8 @@ def randomize_object_pose(
     dist_from_origin: torch.Tensor = distance_range_from_origin[0] + torch.rand((env.num_envs, len(asset_cfgs),), device=env.sim.device) * (distance_range_from_origin[1] - distance_range_from_origin[0])
     theta: torch.Tensor = torch.rand((env.num_envs, len(asset_cfgs),), device=env.sim.device) * 2 * torch.pi
     # Convert to cart
-    offset: torch.Tensor = torch.stack((
+    offset: torch.Tensor = torch.tensor([0.6, 0.0, 0.1]).repeat(env.num_envs, len(asset_cfgs), 1,)
+    '''offset: torch.Tensor = torch.stack((
             dist_from_origin * torch.cos(theta),
             dist_from_origin * torch.sin(theta),
             torch.full(
@@ -249,7 +250,7 @@ def randomize_object_pose(
             ),
         ),
         dim=2,
-    )
+    )'''
     
     # Sample raw quaternions
     raw_quat_rots: torch.Tensor = torch.rand((env.num_envs, len(asset_cfgs), 4,), device=env.sim.device)
