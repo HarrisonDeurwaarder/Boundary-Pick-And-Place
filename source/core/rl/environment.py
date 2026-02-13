@@ -17,6 +17,9 @@ from isaaclab.utils.math import quat_apply
 
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 
+from isaacsim.core.utils.torch.transformations import tf_combine, tf_inverse, tf_vector
+from pxr import UsdGeom
+
 from source.configs.python.scene_cfg import SceneCfg
 from source.configs.python.environment_cfg import EnvCfg
 from source.sim.osc import get_osc, update_states, update_target, convert_to_task_frame
@@ -37,6 +40,7 @@ class Env(DirectRLEnv):
         **kwargs,
     ) -> None:
         super().__init__(EnvCfg(), render_mode, **kwargs)
+        self.dt = self.cfg.sim.dt * self.cfg.decimation
         # Extract assets of interest from scene
         self.robot = self.scene['robot']
         self.contact_forces = self.scene['contact_forces']
@@ -52,6 +56,16 @@ class Env(DirectRLEnv):
         self.local_forward: torch.Tensor = torch.tensor([1.0, 0.0, 0.0], device=self.sim.device,).repeat((self.num_envs, 1),)
         # Center of robot's joint ranges
         self.joint_centers: torch.Tensor = torch.mean(self.robot.data.soft_joint_pos_limits[:, self.arm_joint_ids, :], dim=-1)
+        
+        self.robot_ee_pos: torch.Tensor = torch.zeros((self.num_envs, 3,))
+        self.robot_ee_rot: torch.Tensor = torch.zeros((self.num_envs, 4,))
+        self.object_pos: torch.Tensor = torch.zeros((self.num_envs, 3,))
+        self.object_rot: torch.Tensor = torch.zeros((self.num_envs, 4,))
+        
+        self.robot_up_axis: torch.Tensor = torch.tensor([0.0, 0.0, 1.0]).repeat((self.num_envs, 1,))
+        self.robot_for_axis: torch.Tensor = torch.tensor([1.0, 0.0, 0.0]).repeat((self.num_envs, 1,))
+        self.object_up_axis: torch.Tensor = torch.tensor([0.0, 0.0, 1.0]).repeat((self.num_envs, 1,))
+        self.object_in_axis: torch.Tensor = torch.tensor([-1.0, 0.0, 0.0]).repeat((self.num_envs, 1,))
         
         # Define the OSC for taskspace action handling
         self.osc = get_osc(self.num_envs, self.sim.device,)
@@ -225,18 +239,37 @@ class Env(DirectRLEnv):
         env_ids = torch.arange(self.num_envs, device=self.device)
         
         # Get focal object
-        distances: torch.Tensor = torch.sqrt(torch.sum(torch.square(
-            self.ee_pos.unsqueeze(1).repeat(1, config.config['scene']['object']['n_assets'], 1) - self.object_poses[..., 0:3],
-            ),
-            dim=2,
-        ))
+        distances: torch.Tensor = torch.norm(self.robot_ee_pos, self.object_pos)
+        dist_terms: torch.Tensor = 1.0 / (1.0 + distances**2)
+        dist_terms = torch.where(distances <= 0.02, dist_terms * 2, dist_terms)
         # Base rewards off the closest object
-        distance, focal_indicies = torch.max(distances, dim=1,)
-        focal_indicies = focal_indicies
+        dist_term, focal_indicies = torch.min(dist_terms, dim=1,)
+        
+        # Encourage ee alignment to object
+        axis1 = tf_vector(self.robot_ee_rot[env_ids, focal_indicies], self.robot_for_axis)
+        axis2 = tf_vector(self.object_rot[env_ids, focal_indicies], self.object_for_axis)
+        axis3 = tf_vector(self.robot_ee_rot[env_ids, focal_indicies], self.robot_up_axis)
+        axis4 = tf_vector(self.object_rot[env_ids, focal_indicies], self.object_up_axis)
+        
+        dot1 = torch.bmm(axis1.view(self.num_envs, 1, 3), axis2.view(self.num_envs, 3, 1)).squeeze(-1).squeeze(-1)
+        dot2 = torch.bmm(axis3.view(self.num_envs, 1, 3), axis4.view(self.num_envs, 3, 1)).squeeze(-1).squeeze(-1)
+        
+        rot_term: torch.Tensor = 0.5 * (torch.sign(dot1) * dot1**2 + torch.sign(dot2) * dot2**2)
+        
+        robot_lf_pos: torch.Tensor = self.robot.data.body_pos_w[:, self.lf_link_idx]
+        robot_rf_pos: torch.Tensor = self.robot.data.body_pos_w[:, self.rf_link_idx]
+        
+        lf_dist: torch.Tensor = robot_lf_pos[:, 2] - self.object_pos[:, 2]
+        rf_dist: torch.Tensor = self.object_pos[:, 2] - robot_rf_pos[:, 2]
+        finger_dist_term: torch.Tensor = torch.zeros_like(lf_dist)
+        finger_dist_term += torch.where(lf_dist < 0, lf_dist, torch.zeros_like(lf_dist))
+        finger_dist_term += torch.where(rf_dist < 0, lf_dist, torch.zeros_like(rf_dist))
+        
         # Presumably, the object that is being contacted is also the closest for simplicity
         forces: torch.Tensor = torch.norm(self.contact_forces.data.net_forces_w.squeeze(1), dim=1)
         scaled_forces: torch.Tensor = forces / 100.0 # Scale forces for numerical stability
         is_contacting: torch.Tensor = scaled_forces > 1.0 # Counter noise
+        
         # Find the average prismatic position
         ee_jointspace_pos: torch.Tensor = torch.mean(self.robot.data.joint_pos[:, 7:8], dim=1,)
         # Get object height
@@ -245,7 +278,7 @@ class Env(DirectRLEnv):
         
         mean_velocity: torch.Tensor = torch.mean(self.robot.data.joint_vel, dim=1,)
         rewards = {
-            "dist_term":           config.config["env"]["reward"]["dist_coef"] * -distance, # Reduce distance from object
+            "dist_term":           config.config["env"]["reward"]["dist_coef"] * dist_term, # Reduce distance from object
             "binary_contact_term": config.config["env"]["reward"]["binary_contact_coef"] * is_contacting, # 1/0 Make contact with object
             "contact_term":        config.config["env"]["reward"]["contact_coef"] * -scaled_forces, # Discourage forceful contacts
             "ee_open_term":        config.config["env"]["reward"]["ee_open_coef"] * ee_jointspace_pos, # Keep the end-effector open
@@ -292,3 +325,32 @@ class Env(DirectRLEnv):
         # Reset OSC and sim
         self.sim.reset()
         self.osc.reset()
+        
+    
+    def get_env_local_pose(env_pos: torch.Tensor, xformable: UsdGeom.Xformable,) -> torch.Tensor:
+        '''
+        Compute pose in env-local coordinates
+        
+        Args:
+            env_pos (torch.Tensor): Environment origin
+            xformable (torch.Tensor): Object
+        
+        Returns:
+            torch.Tensor: Env frame pose (pos, quat)
+        '''
+        # Compute world-frame poses
+        world_transform = xformable.ComputeLocalToWorldTransform(0)
+        world_pos = world_transform.ExtractTranslation()
+        world_quat = world_transform.ExtractRotationQuat()
+        # Compute env-frame poses
+        pos: torch.Tensor = torch.tensor([
+            world_pos[0] - env_pos[0], world_pos[1] - env_pos[1], world_pos[2] - env_pos[2],
+        ])
+        quat: torch.Tensor = torch.tensor([
+            world_quat.real, world_quat.imaginary[0], world_quat.imaginary[1], world_quat.imaginary[2],
+        ])
+        return torch.cat((
+                pos, quat,
+            ),
+            dim=0,
+        ).transpose(0, 1) # (E, pose)
