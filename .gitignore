@@ -4,5 +4,6 @@
 source/data
 # Trained models
 source/models
+source/logs
 
-/archive
+archive
