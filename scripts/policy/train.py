@@ -9,135 +9,99 @@ from source.sim.launch_app import launch_app
 from source.utils.config import load_config
 
 sim_app, args_cli = launch_app(
-    enable_cameras=True,
+    enable_cameras=False,
     flatcache=True, 
-    mgmt_api=True,
-    #headless=True,
+    mgmt_api=False,
+    headless=True,
 )
+
 load_config("train")
 
 import isaaclab.sim as sim_utils
 from isaaclab.scene import InteractiveScene
 from isaaclab.assets import Articulation
+from isaaclab_rl.rsl_rl import RslRlVecEnvWrapper
+from isaaclab.envs import ManagerBasedRLEnv
 
-from source.core.rl.environment import Env
+from isaaclab_tasks.manager_based.manipulation.lift import lift_env_cfg
+
+from rsl_rl.runners import OnPolicyRunner
+
+from source.configs.python.environment_cfg import EnvCfg, Env
+
+from isaaclab_rl.rsl_rl.rl_cfg import (
+    RslRlOnPolicyRunnerCfg,
+    RslRlPpoActorCriticCfg,
+    RslRlPpoAlgorithmCfg,
+)
+
+import gymnasium as gym
+
+import isaaclab_tasks  # IMPORTANT: registers tasks into gym
+from isaaclab_tasks.utils import load_cfg_from_registry
 
 import source.utils.config as config
 from source.core.rl.ppo import Actor, Critic
 from source.core.rl.rollout import Rollout
 
 
+policy_cfg = RslRlPpoActorCriticCfg(
+    init_noise_std=1.0,
+    actor_obs_normalization=False,
+    critic_obs_normalization=False,
+    actor_hidden_dims=[256, 128, 64],
+    critic_hidden_dims=[256, 128, 64],
+    activation="elu",
+)
+
+algo_cfg = RslRlPpoAlgorithmCfg(
+    value_loss_coef=1.0,
+    use_clipped_value_loss=True,
+    clip_param=0.2,
+    entropy_coef=0.006,
+    num_learning_epochs=5,
+    num_mini_batches=4,
+    learning_rate=1.0e-4,
+    schedule="adaptive",
+    gamma=0.98,
+    lam=0.95,
+    desired_kl=0.01,
+    max_grad_norm=1.0,
+)
+
+runner_cfg = RslRlOnPolicyRunnerCfg(
+    device="cuda:0",
+    num_steps_per_env = 24,
+    max_iterations = 1500,
+    save_interval = 50,
+    policy=policy_cfg,
+    algorithm=algo_cfg,
+)
+
+
 def main() -> None:
     """
     Main function ran on file execution
     """
-    # Set the correct seed given the argument
-    torch.seed()
     # Create the environment
-    env: Env = Env()
-    # Load the simulation
-    sim: sim_utils.SimulationContext = sim_utils.SimulationContext(env.cfg.sim,)
-    sim.reset()
-    # Extract the scene and robot
-    scene: InteractiveScene = env.scene
-    device: torch.device = env.cfg.sim.device
+    env_cfg = EnvCfg()
+    env = Env(env_cfg)
+    env_wrapper = RslRlVecEnvWrapper(env)
     
-    # Create RL objects
-    policy: Actor = Actor().to(device=device)
-    value: Critic = Critic().to(device=device)
+    '''env_cfg = load_cfg_from_registry("Isaac-Lift-Cube-Franka-v0", "env_cfg_entry_point")
+    env = gym.make("Isaac-Lift-Cube-Franka-v0", cfg=env_cfg)
+    env_wrapper = RslRlVecEnvWrapper(env)'''
     
-    optimizer: Adam = Adam([
-            {"params": policy.parameters(), "lr": config.config["rl"]["ppo"]["policy_lr"]},
-            {"params": value.parameters(), "lr": config.config["rl"]["ppo"]["value_lr"]},
-        ],
+    runner = OnPolicyRunner(
+        env=env_wrapper,
+        train_cfg=runner_cfg.to_dict(),
+        log_dir="source/logs/rsl_rl",
+        device=runner_cfg.device,
     )
     
-    """ Training Loop """
-    # Initial reset
-    obs: torch.Tensor = env.reset()[0]
-    rollout: Rollout = Rollout(
-        initial_obs=obs,
-        initial_value_out=value(obs,),
-        device=device,
+    runner.learn(
+        num_learning_iterations=runner_cfg.max_iterations,
     )
-    # Epoch = num rollouts collected
-    for iteration in range(config.config["rl"]["iterations"]):
-        start = time()
-        # Rollout collection phase
-        rollout.reset()
-        # Loop until rollout is at capacity
-        while len(rollout) < config.config["rl"]["rollout_length"]:
-            # Sample action from policy
-            mean, std = policy(obs,)
-            action: torch.Tensor = Normal(mean, std,).sample()
-            # Step in the environment
-            obs, rew, term, trunc, _, = env.step(action,)
-            # Add to rollout
-            rollout.add(
-                obs, action, mean, std, rew, value(obs,), term | trunc,
-            )
-            # Update the scene and rendering
-            scene.update(env.physics_dt,)
-            sim_app.update()
-        
-        # Batch rollout
-        dataloader: DataLoader = DataLoader(
-            dataset=rollout,
-            batch_size=config.config["rl"]["batch_size"],
-            shuffle=True,
-        )
-        
-        # Training phase
-        rews_h, dones_h, value_outs_h = rollout.get_horizon()
-        # Compute advantages
-        advantages: torch.Tensor = policy.gae(
-            rewards=rews_h,
-            dones=dones_h,
-            value_outs=value_outs_h,
-        )
-        rollout.add_advantages(advantages,)
-        
-        for _ in range(config.config["rl"]["epochs"]):
-            for _obs, actions, old_means, old_stds, advantages, old_value_outs in dataloader:
-                optimizer.zero_grad()
-                # Compute advantages and loss
-                value_outs: torch.Tensor = value(_obs,).squeeze(2)
-                means, stds = policy(_obs,)
-                policy_dist: Normal = Normal(means, stds)
-                
-                policy_objective: torch.Tensor = policy.policy_objective(
-                    policy_dist=policy_dist,
-                    old_policy_dist=Normal(old_means, old_stds),
-                    actions=actions,
-                    advantages=advantages,
-                )
-                value_loss: torch.Tensor = value.value_loss(
-                    value_outs=value_outs,
-                    old_value_outs=old_value_outs,
-                    advantages=advantages,
-                )
-                
-                # Backpropagate
-                loss: torch.Tensor = -policy_objective + config.config["rl"]["ppo"]["value_coef"] * value_loss - config.config["rl"]["ppo"]["entropy_coef"] * policy_dist.entropy().mean()
-                loss.backward()
-                optimizer.step()
-                # Continue scene interaction
-                scene.update(env.physics_dt,)
-                sim_app.update()
-                
-        print(
-            "\n========================================\n",
-            f"Iteration #{iteration+1}/{config.config['rl']['iterations']} Completed:",
-            f"\tMean Reward: {rollout.rewards.mean():.2f}",
-            f"\tMean Episode Length: {((1 - rollout.dones).sum()) / rollout.dones.sum():.2f}",
-            f"\tMean Advantage: {rollout.advantages.mean():.2f}",
-            f"\tSTD Advantage: {rollout.advantages.std():.2f}",
-            f"\tMean Value Loss: {Critic.value_loss(value(rollout.obs[:-1],).squeeze(2), rollout.value_outs[:-1], rollout.advantages,).mean():.2f}",
-            f"\tMean Policy Objective: {Actor.policy_objective(Normal(*policy(rollout.obs[:-1])), Normal(rollout.means, rollout.stds), rollout.actions, rollout.advantages).mean():.2f}",
-            *(f"\tMean Rewards/{key}: {(rewards.mean() / config.config['rl']['rollout_length']):.2f}" for key, rewards in env._episode_rewards.items()),
-            sep="\n",
-        )
-        print(f'\nETA: {((time() - start) * (config.config["rl"]["iterations"] - iteration - 1) / (3600.0)):.2f} hours')
         
 
 if __name__ == "__main__":

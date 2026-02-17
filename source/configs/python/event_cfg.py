@@ -9,7 +9,7 @@ from isaaclab.managers import SceneEntityCfg
 
 from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
 
-from source.sim.domain_randomization import randomize_object_pose, randomize_room_dimensions
+from source.sim.domain_randomization import randomize_object_pose, randomize_room_dimensions, pause_sim, play_sim
 from source.utils.assets import get_assets
 import source.utils.config as config
 

@@ -2,24 +2,24 @@ env:
   decimation: 2
   episode_length: 5.0 # [sec]
   action_scale: 2.5
-  action_space: 7
-  angle_obs_space: 7
-  velocity_obs_space: 7
+  action_space: 21
+  obs_space: 14
   state_space: 0
   reward:
-    sparse_height_threshold: 0.5
-    dist_coef: 1.5
-    rot_coef: 1.5
+    contact_threshold: 3.0 # [N]
+    sparse_height_threshold: 0.5 # [M]
+    dist_coef: 1.0
+    #rot_coef: 0.0
     binary_contact_coef: 1.0
     contact_coef: 0.0
-    finger_dist_coef: 0.02
-    object_height_coef: 0.0
-    sparse_height_coef: 0.0
-    velocity_coef: 0.03
-    passive_coef: 0.0
+    #finger_dist_coef: 0.02
+    object_height_coef: 1.0
+    sparse_height_coef: 15.0
+    velocity_coef: -0.0001
+    #passive_coef: 0.0
 
 scene:
-  num_envs: 1024
+  num_envs: 512
   env_spacing: 2.5
   replicate_physics: False
   clone_in_fabric: False

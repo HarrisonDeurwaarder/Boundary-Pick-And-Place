@@ -5,7 +5,7 @@ from isaaclab.assets import ArticulationCfg, Articulation
 from isaaclab.assets import AssetBaseCfg
 from isaaclab.assets import RigidObjectCfg
 from isaaclab.scene import InteractiveSceneCfg
-from isaaclab.sensors import CameraCfg, TiledCameraCfg, ContactSensorCfg
+from isaaclab.sensors import CameraCfg, TiledCameraCfg, ContactSensorCfg, FrameTransformerCfg
 from isaaclab.utils import configclass
 from isaaclab.sim import UsdFileCfg, RigidBodyPropertiesCfg, MassPropertiesCfg
 
@@ -99,6 +99,16 @@ class SceneCfg(InteractiveSceneCfg):
         debug_vis=False,
         filter_prim_paths_expr=['{ENV_REGEX_NS}/object_' + str(i) for i in range(config.config['scene']['object']['n_assets'])]
     )
+    ee_frame = FrameTransformerCfg(
+        prim_path='{ENV_REGEX_NS}/Robot/panda_link0',
+        target_frames=[
+            FrameTransformerCfg.FrameCfg(
+                prim_path='{ENV_REGEX_NS}/Robot/panda_hand',
+            )
+        ],
+        debug_vis=False,
+    )
+    
     '''
     # Generate and place prims
     wall_x1 = RigidObjectCfg(

@@ -22,6 +22,26 @@ import source.utils.config as config
 thickness: float = config.config['scene']['room']['wall_thickness']
 
 
+def pause_sim(
+    env: ManagerBasedEnv,
+    env_ids: torch.Tensor | None,
+) -> None:
+    """
+    Pause the sim for USD randomization
+    """
+    env.sim.pause()
+    
+    
+def play_sim(
+    env: ManagerBasedEnv,
+    env_ids: torch.Tensor | None,
+) -> None:
+    """
+    Unpause the sim
+    """
+    env.sim.play()
+
+
 def randomize_room_dimensions(
     env: ManagerBasedEnv,
     env_ids: torch.Tensor | None,
@@ -223,10 +243,6 @@ def randomize_object_pose(
         distance_range_from_origin (tuple[float]): Min/max distance that the asset can be translated from the origin
     '''
     
-    # Check if sim is running
-    if env.sim.is_playing():
-        raise RuntimeError('USD property modification attempted while simulation was running')
-    
     # Resolve environment ids
     if env_ids is None:
         env_ids = torch.arange(env.scene.num_envs, device='cpu')
@@ -239,7 +255,7 @@ def randomize_object_pose(
     dist_from_origin: torch.Tensor = distance_range_from_origin[0] + torch.rand((env.num_envs, len(asset_cfgs),), device=env.sim.device) * (distance_range_from_origin[1] - distance_range_from_origin[0])
     theta: torch.Tensor = torch.rand((env.num_envs, len(asset_cfgs),), device=env.sim.device) * 2 * torch.pi
     # Convert to cart
-    offset: torch.Tensor = torch.tensor([0.6, 0.0, 0.1]).repeat(env.num_envs, len(asset_cfgs), 1,)
+    offset: torch.Tensor = torch.tensor([0.6, 0.0, 0.0], device=env.sim.device).repeat(env.num_envs, len(asset_cfgs), 1,)
     '''offset: torch.Tensor = torch.stack((
             dist_from_origin * torch.cos(theta),
             dist_from_origin * torch.sin(theta),
@@ -258,50 +274,18 @@ def randomize_object_pose(
     quat_rots: torch.Tensor = F.normalize(raw_quat_rots, dim=2,)
     
     # Iter through all prims
-    with Sdf.ChangeBlock():
-        for i, asset_cfg in enumerate(asset_cfgs):
-            # Resolve prim paths for spawning and cloning
-            asset = env.scene[asset_cfg.name]
-            prim_paths = sim_utils.find_matching_prim_paths(asset.cfg.prim_path)
-            
-            for j, env_id in enumerate(env_ids):
-                prim_path = prim_paths[env_id]
-                prim_spec = Sdf.CreatePrimInLayer(stage.GetRootLayer(), prim_path)
-                
-                # Get orient attribute
-                orient_spec = prim_spec.GetAttributeAtPath(prim_path + '.xformOp:orient')
-                # If attribute doesn't exist, create it
-                if orient_spec is None:
-                    orient_spec = Sdf.AttributeSpec(
-                        prim_spec,
-                        prim_path + '.xformOp:scale',
-                        Sdf.ValueTypeNames.Quatd,
-                    )
-                # Set new orient
-                orient_spec.default = Gf.Quatd(*quat_rots[j, i].tolist())
-                
-                # Get translation attribute
-                translate_spec = prim_spec.GetAttributeAtPath(prim_path + '.xformOp:translate')
-                # If attribute doesn't exist, create it
-                if translate_spec is None:
-                    translate_spec = Sdf.AttributeSpec(
-                        prim_spec,
-                        prim_path + '.xformOp:translate',
-                        Sdf.ValueTypeNames.Double3,
-                    )
-                # Set new scale
-                translate_spec.default = Gf.Vec3f(*offset[j, i].tolist())
-                
-                # Ensure operations are done in correct order
-                # If neither attributes are missing, assume order is correct
-                if orient_spec is None or translate_spec is None:
-                    op_order_spec = prim_spec.GetAttributeAtPath(prim_path + '.xformOpOrder')
-                    if op_order_spec is None:
-                        op_order_spec = Sdf.AttributeSpec(
-                            prim_spec, UsdGeom.Tokens.xformOpOrder, Sdf.ValueTypeNames.TokenArray
-                        )
-                    op_order_spec.default = Vt.TokenArray([
-                        'xformOp:translate',
-                        'xformOp:orient',
-                        'xformOp:scale',
-                    ])
+    for i, asset_cfg in enumerate(asset_cfgs):
+        asset = env.scene[asset_cfg.name]  # RigidObject
+
+        # Build full-size buffers once (so we can update only env_ids safely)
+        root_state = asset.data.default_root_state.clone().to(device=env.sim.device)  # <-- change
+        origins_w = env.scene.env_origins.to(device=env.sim.device)
+        env_ids_dev = env_ids.to(device=env.sim.device, dtype=torch.long)
+
+        root_state[env_ids_dev, 0:3] = origins_w[env_ids_dev] + offset[env_ids_dev, i]
+        root_state[env_ids_dev, 3:7] = quat_rots[env_ids_dev, i]
+        root_state[env_ids_dev, 7:13] = 0.0
+
+        asset.write_root_pose_to_sim(root_state[:, 0:7])
+        asset.write_root_velocity_to_sim(root_state[:, 7:13])
+        asset.reset(env_ids=env_ids_dev)
